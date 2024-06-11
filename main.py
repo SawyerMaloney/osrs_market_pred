@@ -2,6 +2,7 @@ import requests
 import time
 
 url = "https://prices.runescape.wiki/api/v1/osrs/5m?timestamp="
+mapping = "https://prices.runescape.wiki/api/v1/osrs/mapping
 
 # url = https://prices.runescape.wiki/api/v1/osrs/5m?timestamp=1615733400
 
@@ -12,8 +13,8 @@ headers = {
 items = {}
 # first, initialize list of items 
 year = 2023
-month = 5
-day = 3
+month = 1
+day = 1
 hour = 12
 minute = 30
 second = 0
