@@ -55,8 +55,8 @@ for key in response.keys():
         # get rid of items that don't have enough data or won't have enough volume to be helpful
         items[key] = [] # will be appending each piece of data here
 
-
-for i in range(288): 
+# ten days of data
+for i in range(288 * 10): 
     specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
     timestamp = int(time.mktime(specified_time)) - (5 * 60 * i) # the number of seconds in the number of five minute chunks that we're subtracting
     timestamp = str(timestamp)
