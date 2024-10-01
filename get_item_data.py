@@ -2,18 +2,17 @@ import requests
 import time
 import json
 import os
+import datetime
 
 
 def get_mean(item_id, item):
     if item["lowPriceVolume"] != None and item["highPriceVolume"] != None and item["avgHighPrice"] != 0 and item["avgLowPrice"] != 0 and item["lowPriceVolume"] != 0 and item["highPriceVolume"] != 0:
         total_volume = item["lowPriceVolume"] + item["highPriceVolume"]
-        return item["avgHighPrice"] * (total_volume - item["highPriceVolume"]) + item["avgLowPrice"] * (total_volume - item["lowPriceVolume"])
+        return (item["avgHighPrice"] * item["highPriceVolume"] + item["avgLowPrice"] * item["lowPriceVolume"]) / total_volume
 
 
 url = "https://prices.runescape.wiki/api/v1/osrs/5m?timestamp="
 mapping = "https://prices.runescape.wiki/api/v1/osrs/mapping"
-
-# url = https://prices.runescape.wiki/api/v1/osrs/5m?timestamp=1615733400
 
 headers = {
     "User-Agent": "ML training - sawyerdmaloney@gmail.com"
@@ -36,40 +35,69 @@ else:
         json.dump(item_names, item_names_json)
 
 
-year = 2023
-month = 1
-day = 1
-hour = 12
-minute = 30
-second = 0
-
-specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
-timestamp = str(int(time.mktime(specified_time)))
+# specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
+# print(specified_time)
+# timestamp = str(int(time.mktime(specified_time)))
+timestamp = str(time.time())
 
 response = requests.get(url + timestamp, headers=headers).json()["data"]
 for key in response.keys():
     # want to do some data cleaning right now
     r = response[key]
-    if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or r["highPriceVolume"] + r["lowPriceVolume"] < 5000):
-    # if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or r["highPriceVolume"] < 100 or r["lowPriceVolume"] < 100):
+    if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or r["highPriceVolume"] + r["lowPriceVolume"] < 500):
+    # if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or we don't have enough total volume,
         # get rid of items that don't have enough data or won't have enough volume to be helpful
         items[key] = [] # will be appending each piece of data here
 
+
 # ten days of data
-for i in range(288 * 10): 
-    specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
-    timestamp = int(time.mktime(specified_time)) - (5 * 60 * i) # the number of seconds in the number of five minute chunks that we're subtracting
-    timestamp = str(timestamp)
+number_of_days = 1
+interval_time = 5
+minutes_per_hour = 60
+hours_per_day = 24
+intervals_per_day = int(minutes_per_hour * hours_per_day / interval_time)
 
-    response = requests.get(url + timestamp, headers=headers).json()["data"]
+# define start time
+start_time = int(time.time())
+while start_time % 300 != 0:
+    start_time -= 1
 
-    for item_id in items.keys():
-        if item_id in response.keys():
-            item = response[item_id]
-            items[item_id].append(get_mean(item_id, item))
+if os.path.exists("items_raw.json"):
+    print("loading from items_raw. Delete items_raw.json if you want to update data.")
+    with open("items_raw.json", "r") as raw:
+        items = json.load(raw)
+else:
+    print("items_raw.json not found. Using API calls.")
+    print(f"number of intervals: {intervals_per_day * number_of_days}")
+    for i in range(int(intervals_per_day * number_of_days)):
+        # specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
+        timestamp = int(start_time) - (5 * 60 * i) # the number of seconds in the number of five minute chunks that we're subtracting
+        timestamp = str(timestamp)
 
-    if i % 10 == 0:
-        print(i)
+        response = requests.get(url + timestamp, headers=headers).json()["data"]
+
+        for item_id in items.keys():
+            if item_id in response.keys():
+                item = response[item_id]
+                items[item_id].insert(0, get_mean(item_id, item))
+                # items[item_id].append((item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
+
+        if i % 10 == 0:
+            print(i)
+
+with open("items_raw.json", "w") as raw:
+    json.dump(items, raw)
+
+# copy forward any missing prices because why not
+popping_keys = []
+for key in items.keys():
+    for price in range(len(items[key])):
+        if items[key][price] == None:
+            items[key][price] = items[key][price - 1]
+
+# some items might just be complete duds
+for key in popping_keys:
+    items.pop(key, None)
 
 with open("items.json", "w") as items_json:
     json.dump(items, items_json)
