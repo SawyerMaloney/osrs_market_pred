@@ -9,44 +9,49 @@ item_ids = []
 all_data = None
 item_names = None
 
-if os.path.exists("item_names.json"):
-    with open("item_names.json", "r") as names:
-        item_names = json.load(names)
 
 if os.path.exists("items.json"):
     with open("items.json", "r") as items:
         all_data = json.load(items)
 
 def find_good_items():
-    expected_length = len(all_data[[_ for _ in all_data.keys()][0]])
+    expected_length = len(all_data[list(all_data.keys())[0]][0])
     for item in all_data.keys():
-        mean = sum(all_data[item]) / len(all_data[item])
+        mean = 0
+        for entry in all_data[item]:
+            mean += entry[0]
+        mean /= len(all_data[item])
         if mean > 50 and mean < 200000 and len(all_data[item]) == expected_length:
             item_ids.append(item)
 
-find_good_items()
-print(f"number of good items: {len(item_ids)}")
+if os.path.exists("item_names.json"):
+    print("loading item names from item_names.json. delete this file to re-calculate good items")
+    with open("item_names.json", "r") as names:
+        item_names = json.load(names)
+else:
+    print("finding good items...")
+    find_good_items()
+    print(f"# of good items: {len(item_ids)}")
 
+
+# copying data over so that it is in a tensor and not a dictionary
+# items indexed based on their ordering in items_ids
 data_dtype = torch.float
 
-# data = torch.zeros((len(item_ids), len(all_data[item_ids[0]])), dtype=data_dtype)
-"""
-for i in range(len(item_ids)):
-    data[i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
-"""
+timeseries_total_length = len(all_data[item_ids[0]])
+number_of_items = len(item_ids)
+fields_per_item = 4 # avg high/low, vol high/low --> four total fields
 
-data = torch.zeros((len(all_data[item_ids[0]]), len(item_ids)), dtype=data_dtype)
+data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype)
+# copy data over
 for i in range(len(item_ids)):
-    data[:,i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
+    data[:,i,:] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
-print(data.size())
 
 # model parameters
 # how long each time sequence is
 sequence_length = 20
-# how many iterations we train per epoch
-epoch_length = 100000
-# rnn = nn.RNN(len(item_ids), len(item_ids), nonlinearity="relu")
+epoch_length = 10000
 
 class PricePredictorRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers=1):
@@ -64,12 +69,12 @@ class PricePredictorRNN(nn.Module):
         out = self.fc(rnn_out[-1, :])  # Use the last time step output
         return out
 
-input_hidden_size = len(item_ids)
-model = PricePredictorRNN(input_hidden_size, input_hidden_size, input_hidden_size, num_layers = 3)
+input_size = len(item_ids)
+hidden_size = 30
+model = PricePredictorRNN(input_size, hidden_size, input_size, num_layers = 3)
 
 learning_rate = 0.001
-mom = .9
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=mom)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 def train_one_epoch():
     min_loss = 100000000000
@@ -82,6 +87,8 @@ def train_one_epoch():
         inputs = data[index:index + sequence_length, :]
         # the target value (five minutes in the future)
         # labels = data[:, index + sequence_length + 1]
+        # normalize the inputs
+        # F.normalize 
         labels = data[index + sequence_length + 1, :]
 
         optimizer.zero_grad()

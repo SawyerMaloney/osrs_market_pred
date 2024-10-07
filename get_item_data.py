@@ -79,8 +79,7 @@ else:
         for item_id in items.keys():
             if item_id in response.keys():
                 item = response[item_id]
-                items[item_id].insert(0, get_mean(item_id, item))
-                # items[item_id].append((item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
+                items[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
 
         if i % 10 == 0:
             print(i)
@@ -89,10 +88,12 @@ with open("items_raw.json", "w") as raw:
     json.dump(items, raw)
 
 # copy forward any missing prices because why not
+# TODO or to pay attention to -- this is probably not a good way of doing this and may screw with results
+# may just need to zero out these fields and hope that the model can handle it
 popping_keys = []
 for key in items.keys():
     for price in range(len(items[key])):
-        if items[key][price] == None:
+        if any(_ == None for _ in items[key][price]):
             items[key][price] = items[key][price - 1]
 
 # some items might just be complete duds
