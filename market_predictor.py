@@ -15,14 +15,32 @@ if os.path.exists("items.json"):
         all_data = json.load(items)
 
 def find_good_items():
-    expected_length = len(all_data[list(all_data.keys())[0]][0])
+    lengths = {}
+    for key in all_data.keys():
+        if len(all_data[key]) in lengths.keys():
+            lengths[len(all_data[key])] += 1
+        else:
+            lengths[len(all_data[key])] = 1
+
+    mode = 0
+    occur = 0
+    for key in lengths.keys():
+        if lengths[key] > occur:
+            occur = lengths[key] 
+            mode = key
+
+    expected_length = mode
     for item in all_data.keys():
+        if len(all_data[item]) == expected_length:
+            item_ids.append(item) # REMOVE TODO TEST
         mean = 0
+        """
         for entry in all_data[item]:
             mean += entry[0]
         mean /= len(all_data[item])
         if mean > 50 and mean < 200000 and len(all_data[item]) == expected_length:
             item_ids.append(item)
+        """
 
 if os.path.exists("item_names.json"):
     print("loading item names from item_names.json. delete this file to re-calculate good items")
@@ -85,6 +103,7 @@ def train_one_epoch():
         # time series
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length, :]
+        print(inputs.size())
         # the target value (five minutes in the future)
         # labels = data[:, index + sequence_length + 1]
         # normalize the inputs
