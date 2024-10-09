@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch
 import json
 
+# ----------------- getting data and setting up dataset ----------------- #
 # prep data first
 item_ids = []
 all_data = None
@@ -30,17 +31,13 @@ def find_good_items():
             mode = key
 
     expected_length = mode
+    print(f"expected length: {mode}")
     for item in all_data.keys():
         if len(all_data[item]) == expected_length:
-            item_ids.append(item) # REMOVE TODO TEST
-        mean = 0
-        """
-        for entry in all_data[item]:
-            mean += entry[0]
-        mean /= len(all_data[item])
-        if mean > 50 and mean < 200000 and len(all_data[item]) == expected_length:
+            # this adds all items that are the right length--maybe good? 
+            # should we only be predicting over items that we think would be beneficial to predict, but include information about all the items?
             item_ids.append(item)
-        """
+        mean = 0
 
 if os.path.exists("item_names.json"):
     print("loading item names from item_names.json. delete this file to re-calculate good items")
@@ -50,6 +47,8 @@ else:
     print("finding good items...")
     find_good_items()
     print(f"# of good items: {len(item_ids)}")
+    with open("item_names.json", "w") as names:
+        json.dump(item_names, names)
 
 
 # copying data over so that it is in a tensor and not a dictionary
@@ -65,11 +64,7 @@ data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), 
 for i in range(len(item_ids)):
     data[:,i,:] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
-
-# model parameters
-# how long each time sequence is
-sequence_length = 20
-epoch_length = 10000
+# ----------------- model definition ----------------- #
 
 class PricePredictorRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers=1):
@@ -87,12 +82,6 @@ class PricePredictorRNN(nn.Module):
         out = self.fc(rnn_out[-1, :])  # Use the last time step output
         return out
 
-input_size = len(item_ids)
-hidden_size = 30
-model = PricePredictorRNN(input_size, hidden_size, input_size, num_layers = 3)
-
-learning_rate = 0.001
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 def train_one_epoch():
     min_loss = 100000000000
@@ -103,11 +92,12 @@ def train_one_epoch():
         # time series
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length, :]
-        print(inputs.size())
+
+
+        # normalize the inputs -- hopefully speed up training and make more accurate
+        inputs = F.normalize(inputs, dim=0)
+
         # the target value (five minutes in the future)
-        # labels = data[:, index + sequence_length + 1]
-        # normalize the inputs
-        # F.normalize 
         labels = data[index + sequence_length + 1, :]
 
         optimizer.zero_grad()
@@ -131,5 +121,19 @@ def train_one_epoch():
             print(labels)
             print(outputs)
             print(f"min_loss: {min_loss}")
+
+# ----------------- hyperparameters and training calls ----------------- #
+
+# model parameters
+# how long each time sequence is
+sequence_length = 64
+epoch_length = 3000
+
+input_size = fields_per_item
+hidden_size = 64
+model = PricePredictorRNN(input_size, hidden_size, input_size, num_layers = 2)
+
+learning_rate = 0.1
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 train_one_epoch()
