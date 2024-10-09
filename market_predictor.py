@@ -1,3 +1,13 @@
+# TODO
+"""
+- Find some items that are the best to track (5-10) and track only those
+- figure out why the outputs keep converging to the same place!!
+    - I think having smaller targets (like all the items will be ~ 200-1000 gp) will help with this
+    - so that the model does not have to learn long enough to push the weights up that high
+    - possibly also remove the volumes? Just predict the high/low prices?
+
+"""
+
 import os
 import torch.nn as nn
 import torch.nn.functional as F
@@ -39,16 +49,16 @@ def find_good_items():
             item_ids.append(item)
         mean = 0
 
-if os.path.exists("item_names.json"):
-    print("loading item names from item_names.json. delete this file to re-calculate good items")
-    with open("item_names.json", "r") as names:
-        item_names = json.load(names)
+if os.path.exists("item_ids.json"):
+    print("loading item names from item_ids.json. delete this file to re-calculate good items")
+    with open("item_ids.json", "r") as names:
+        item_ids = json.load(names)
 else:
-    print("finding good items...")
+    print("finding good item ids...")
     find_good_items()
     print(f"# of good items: {len(item_ids)}")
-    with open("item_names.json", "w") as names:
-        json.dump(item_names, names)
+    with open("item_ids.json", "w") as names:
+        json.dump(item_ids, names)
 
 
 # copying data over so that it is in a tensor and not a dictionary
@@ -95,18 +105,18 @@ def train_one_epoch():
 
 
         # normalize the inputs -- hopefully speed up training and make more accurate
-        inputs = F.normalize(inputs, dim=0)
+        # something is wrong with the way that normalizing is affecting the training!
+        # no matter what dimension I put
+        # inputs = F.normalize(inputs, dim=0)
 
         # the target value (five minutes in the future)
-        labels = data[index + sequence_length + 1, :]
+        labels = torch.squeeze(data[index + sequence_length + 1, :])
 
         optimizer.zero_grad()
         
         outputs = model(inputs)
 
-        loss = abs(outputs - labels)
-
-        loss = loss.sum()
+        loss = criterion(outputs, labels)
 
         if loss < min_loss:
             min_loss = loss
@@ -127,13 +137,15 @@ def train_one_epoch():
 # model parameters
 # how long each time sequence is
 sequence_length = 64
-epoch_length = 3000
+epoch_length = 1000
 
 input_size = fields_per_item
 hidden_size = 64
-model = PricePredictorRNN(input_size, hidden_size, input_size, num_layers = 2)
+model = PricePredictorRNN(input_size, hidden_size, input_size, num_layers = 1)
 
-learning_rate = 0.1
+criterion = nn.MSELoss()
+
+learning_rate = 0.001
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 train_one_epoch()
