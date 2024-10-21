@@ -118,7 +118,7 @@ def train_one_epoch():
 
         # the target value (five minutes in the future)
         # taking only id=2 
-        labels = torch.squeeze(data[index + sequence_length + 1, item_ids.index("2")])
+        labels = data[index + sequence_length + 1, item_ids.index("2")]
 
         optimizer.zero_grad()
         
@@ -132,7 +132,7 @@ def train_one_epoch():
         loss.backward()
 
         optimizer.step()
-        if i % 1000 == 0:
+        if i % 1000 == 0 and i != 0:
             print(f"batch {i + 1} loss: {loss}")
 
         if i + 1 == epoch_length:
@@ -151,7 +151,8 @@ epoch_length = 1000
 input_size = number_of_items
 hidden_size = 8
 output_size = 1
-model = PricePredictorRNN(input_size, hidden_size, output_size, num_layers = 1)
+num_layers = 3
+model = PricePredictorRNN(input_size, hidden_size, output_size, num_layers)
 
 criterion = nn.MSELoss()
 

@@ -3,7 +3,12 @@ import time
 import json
 import os
 import datetime
-
+# ------------------------------ TODO ------------------------------ # 
+"""
+    Use timeseries and loop over ids, might be a speed increase
+    Depends on number of ids versus 365 limit
+    Possibly only take a subsection of items (~140? Good items?)
+"""
 
 def get_mean(item_id, item):
     if item["lowPriceVolume"] != None and item["highPriceVolume"] != None and item["avgHighPrice"] != 0 and item["avgLowPrice"] != 0 and item["lowPriceVolume"] != 0 and item["highPriceVolume"] != 0:
@@ -45,13 +50,14 @@ for key in response.keys():
     # want to do some data cleaning right now
     r = response[key]
     if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or r["highPriceVolume"] + r["lowPriceVolume"] < 500):
-    # if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or we don't have enough total volume,
         # get rid of items that don't have enough data or won't have enough volume to be helpful
         items[key] = [] # will be appending each piece of data here
 
+print(f"number of items we are fetching: {len(items.keys())}")
+
 
 # ten days of data
-number_of_days = 1
+number_of_days = 100
 interval_time = 5
 minutes_per_hour = 60
 hours_per_day = 24
