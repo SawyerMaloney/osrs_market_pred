@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import json
+import time
 
 # ----------------- getting data and setting up dataset ----------------- #
 # prep data first
@@ -157,4 +158,8 @@ criterion = nn.MSELoss()
 learning_rate = 0.01
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-train_one_epoch()
+for i in range(5):
+    before = time.perf_counter()
+    train_one_epoch()
+    after = time.perf_counter()
+    print(f"time for {i} epoch: {(after - before):.2f}")
