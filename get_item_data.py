@@ -45,12 +45,9 @@ def get_data(thread_num, start, num_iters, interval_time, data, parallel):
         two_found = False
         for item_id in items.keys():
             if item_id in response.keys():
-                if item_id == "2":
-                    two_found = True
                 item = response[item_id]
                 data[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
-        if not two_found:
-            print(url + timestamp)
+
         iteration = int((range_start - i) / (interval_time))
         if iteration % 100 == 0:
             print(f"thread {thread_num}: {iteration}")
