@@ -38,7 +38,7 @@ def get_data(thread_num, start, num_iters, interval_time, data, parallel):
     range_start = start - thread_num * int(num_iters / parallel) * interval_time
     range_end = start - (thread_num + 1) * int(num_iters / parallel) * interval_time
     print(f"thread {thread_num} checking {range_start - range_end} timezone")
-    for i in range(range_start, range_end, -1 * interval_time * 60):
+    for i in range(range_start, range_end, -1 * interval_time):
         timestamp = str(i)
 
         response = requests.get(url + timestamp, headers=headers).json()["data"]
@@ -89,7 +89,7 @@ if os.path.exists("items_raw.json") :
         print(f"number of intervals: {intervals_per_day * number_of_days}")
 
         # parallelizing by splitting the calls into ten sections
-        parallel = 2
+        parallel = 64
         dict_manager = Manager()
         data = dict_manager.list([dict_manager.dict() for _ in range(parallel)])
         # add keys to data dicts
