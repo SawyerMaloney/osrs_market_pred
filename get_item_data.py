@@ -37,19 +37,24 @@ def get_data(thread_num, start, num_iters, interval_time, data, parallel):
     size_of_thread = int(num_iters / parallel)
     range_start = start - thread_num * int(num_iters / parallel) * interval_time
     range_end = start - (thread_num + 1) * int(num_iters / parallel) * interval_time
+    print(f"thread {thread_num} checking {range_start - range_end} timezone")
     for i in range(range_start, range_end, -1 * interval_time * 60):
         timestamp = str(i)
 
         response = requests.get(url + timestamp, headers=headers).json()["data"]
-
+        two_found = False
         for item_id in items.keys():
             if item_id in response.keys():
+                if item_id == "2":
+                    two_found = True
                 item = response[item_id]
                 data[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
-
+        if not two_found:
+            print(url + timestamp)
         iteration = int((range_start - i) / (interval_time))
         if iteration % 100 == 0:
             print(f"thread {thread_num}: {iteration}")
+
 
 timestamp = str(time.time())
 
@@ -65,7 +70,7 @@ print(f"number of items we are fetching: {len(items.keys())}")
 
 
 # ten days of data
-number_of_days = 100
+number_of_days = 10
 seconds_per_minute = 60
 interval_time = 5 * seconds_per_minute # five minute increments, needs to be in seconds
 minutes_per_hour = 60
@@ -83,11 +88,11 @@ if os.path.exists("items_raw.json") :
         with open("items_raw.json", "r") as raw:
             items = json.load(raw)
     else:
-        print("items_raw.json not found. Using API calls.")
+        print("Using API calls.")
         print(f"number of intervals: {intervals_per_day * number_of_days}")
 
         # parallelizing by splitting the calls into ten sections
-        parallel = 64
+        parallel = 2
         dict_manager = Manager()
         data = dict_manager.list([dict_manager.dict() for _ in range(parallel)])
         # add keys to data dicts
@@ -109,6 +114,8 @@ if os.path.exists("items_raw.json") :
         for array in data:
             for key in array.keys():
                 items[key] = array[key] + items[key]
+
+        print(f"len of item '2': {len(items['2'])}")
 
 
 with open("items_raw.json", "w") as raw:
