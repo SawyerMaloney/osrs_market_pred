@@ -3,14 +3,11 @@ import time
 import json
 import os
 import datetime
-from multiprocessing import Process
+from multiprocessing import Process, Manager
 # ------------------------------ TODO ------------------------------ # 
 """
-    Use timeseries and loop over ids, might be a speed increase
-    Depends on number of ids versus 365 limit
-    Possibly only take a subsection of items (~140? Good items?)
-
-    Or multithread using pool to make multiple api requests 
+    Possibly want to make the last thread get the last couple of intervals that are being missed from rounding, but also with training it isn't the biggest deal
+    When it comes to predicting we will want to be sure though
 """
 
 url = "https://prices.runescape.wiki/api/v1/osrs/5m?timestamp="
@@ -36,26 +33,24 @@ else:
     with open("item_names.json", "w") as item_names_json:
         json.dump(item_names, item_names_json)
 
-def get_data(thread_num, start, num_iters, interval_time, data):
-    print(f"thread {thread_num} range: from {start - thread_num * num_iters * interval_time} to {start - (thread_num + 1) * num_iters * interval_time}")
-    for i in range(start - thread_num * int(num_iters / 10) * interval_time * 60, start - (thread_num + 1) * int(num_iters / 10) * interval_time * 60, -1 * interval_time * 60):
+def get_data(thread_num, start, num_iters, interval_time, data, parallel):
+    size_of_thread = int(num_iters / parallel)
+    range_start = start - thread_num * int(num_iters / parallel) * interval_time
+    range_end = start - (thread_num + 1) * int(num_iters / parallel) * interval_time
+    for i in range(range_start, range_end, -1 * interval_time * 60):
         timestamp = str(i)
-        print(f"making request with url {url + timestamp}")
-        print(f"i: {i}")
+
         response = requests.get(url + timestamp, headers=headers).json()["data"]
 
         for item_id in items.keys():
             if item_id in response.keys():
                 item = response[item_id]
-                print(f"item found: {item}")
                 data[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
 
-        if i % 10 == 0:
-            print(f"thread {thread_num}: {i}")
+        iteration = int((range_start - i) / (interval_time))
+        if iteration % 100 == 0:
+            print(f"thread {thread_num}: {iteration}")
 
-# specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
-# print(specified_time)
-# timestamp = str(int(time.mktime(specified_time)))
 timestamp = str(time.time())
 
 response = requests.get(url + timestamp, headers=headers).json()["data"]
@@ -71,10 +66,11 @@ print(f"number of items we are fetching: {len(items.keys())}")
 
 # ten days of data
 number_of_days = 100
-interval_time = 5
+seconds_per_minute = 60
+interval_time = 5 * seconds_per_minute # five minute increments, needs to be in seconds
 minutes_per_hour = 60
 hours_per_day = 24
-intervals_per_day = int(minutes_per_hour * hours_per_day / interval_time)
+intervals_per_day = int(seconds_per_minute * minutes_per_hour * hours_per_day / interval_time)
 
 # define start time
 start_time = int(time.time())
@@ -91,16 +87,29 @@ if os.path.exists("items_raw.json") :
         print(f"number of intervals: {intervals_per_day * number_of_days}")
 
         # parallelizing by splitting the calls into ten sections
-        parallel = 10
-        data = [items.copy() for _ in range(parallel)] # for holding data
+        parallel = 64
+        dict_manager = Manager()
+        data = dict_manager.list([dict_manager.dict() for _ in range(parallel)])
+        # add keys to data dicts
+        for dicts in data:
+            for key in items.keys():
+                dicts[key] = dict_manager.list()
+
         processes = []
+        num_iters = intervals_per_day * number_of_days # subject to change
         for _ in range(parallel):
             print(f"starting process {_}")
-            processes.append(Process(target=get_data, args=(_, start_time, parallel, interval_time, data[_])))
+            processes.append(Process(target=get_data, args=(_, start_time, num_iters, interval_time, data[_], parallel)))
             processes[_].start()
         for _ in processes:
             print(f"joining process {_}")
             _.join()
+
+        # now we have the list of dicts, so add each one to items
+        for array in data:
+            for key in array.keys():
+                items[key] = array[key] + items[key]
+
 
 with open("items_raw.json", "w") as raw:
     json.dump(items, raw)

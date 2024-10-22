@@ -1,20 +1,11 @@
-# TODO
-"""
-- Find some items that are the best to track (5-10) and track only those
-- figure out why the outputs keep converging to the same place!!
-    - I think having smaller targets (like all the items will be ~ 200-1000 gp) will help with this
-    - so that the model does not have to learn long enough to push the weights up that high
-    - possibly also remove the volumes? Just predict the high/low prices?
-- possibly not needed to normalize the price data, just have better & more specific targets
-
-"""
-
 import os
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import json
 import time
+
+device = torch.device("cpu")
 
 # ----------------- getting data and setting up dataset ----------------- #
 # prep data first
@@ -69,29 +60,29 @@ data_dtype = torch.float
 
 timeseries_total_length = len(all_data[item_ids[0]])
 number_of_items = len(item_ids)
-# fields_per_item = 4 # avg high/low, vol high/low --> four total fields
 
 # changing data manipulation to be 1d--just prices
 for key in all_data.keys():
     for item in range(len(all_data[key])):
         all_data[key][item] = all_data[key][item][0]
 
-# data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype)
-data = torch.zeros((timeseries_total_length, number_of_items), dtype=data_dtype)
+data = torch.zeros((timeseries_total_length, number_of_items), dtype=data_dtype, device=device)
 # copy data over
 for i in range(len(item_ids)):
     data[:,i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
+print(f"size of data: {data.size()}")
+
 # ----------------- model definition ----------------- #
 
 class PricePredictorRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers=1):
+    def __init__(self, input_size, hidden_size, output_size, device, num_layers=1):
         super(PricePredictorRNN, self).__init__()
         
         self.hidden_size = hidden_size
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, device=device)
         # Linear layer to map the RNN output to price prediction
-        self.fc = nn.Linear(hidden_size, output_size)
+        self.fc = nn.Linear(hidden_size, output_size, device=device)
     
     def forward(self, x):
         # RNN expects input as (batch_size, sequence_length, input_size)
@@ -105,16 +96,10 @@ def train_one_epoch():
     for i in range(epoch_length):
         # get data split
         # can't overrun the data with the sequence length or the one more that we need for the label
-        index = torch.randint(0, len(all_data[item_ids[0]]) - sequence_length - 1, (1,))
+        index = torch.randint(0, len(all_data[item_ids[0]]) - sequence_length - 1, (1,), device=device)
         # time series
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length]
-
-
-        # normalize the inputs -- hopefully speed up training and make more accurate
-        # something is wrong with the way that normalizing is affecting the training!
-        # no matter what dimension I put
-        # inputs = F.normalize(inputs, dim=0)
 
         # the target value (five minutes in the future)
         # taking only id=2 
@@ -132,6 +117,8 @@ def train_one_epoch():
         loss.backward()
 
         optimizer.step()
+        if i % (epoch_length / 10) == 0 and i != 0:
+            print(f"{i}/{epoch_length}: loss {loss:.2f}")
         if i % 1000 == 0 and i != 0:
             print(f"batch {i + 1} loss: {loss}")
 
@@ -144,15 +131,16 @@ def train_one_epoch():
 
 # model parameters
 # how long each time sequence is
-sequence_length = 64
+sequence_length = 128
 epoch_length = 1000
+
 
 # input_size = (number_of_items, fields_per_item)
 input_size = number_of_items
 hidden_size = 8
 output_size = 1
 num_layers = 3
-model = PricePredictorRNN(input_size, hidden_size, output_size, num_layers)
+model = PricePredictorRNN(input_size, hidden_size, output_size, device, num_layers=num_layers)
 
 criterion = nn.MSELoss()
 
