@@ -38,15 +38,19 @@ else:
 
 def get_data(thread_num, start, num_iters, interval_time, data):
     print(f"thread {thread_num} range: from {start - thread_num * num_iters * interval_time} to {start - (thread_num + 1) * num_iters * interval_time}")
-    for i in range(start - thread_num * int(num_iters / 10) * interval_time * 60, start - (thread_num + 1) * int(num_iters / 10) * interval_time * 60):
+    for i in range(start - thread_num * int(num_iters / 10) * interval_time * 60, start - (thread_num + 1) * int(num_iters / 10) * interval_time * 60, -1 * interval_time * 60):
+        timestamp = str(i)
+        print(f"making request with url {url + timestamp}")
+        print(f"i: {i}")
         response = requests.get(url + timestamp, headers=headers).json()["data"]
 
         for item_id in items.keys():
             if item_id in response.keys():
                 item = response[item_id]
+                print(f"item found: {item}")
                 data[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
 
-        if i % 10:
+        if i % 10 == 0:
             print(f"thread {thread_num}: {i}")
 
 # specified_time = time.struct_time((year, month, day, hour, minute, second, 0, 0, 0))
@@ -88,7 +92,7 @@ if os.path.exists("items_raw.json") :
 
         # parallelizing by splitting the calls into ten sections
         parallel = 10
-        data = [[] for _ in range(parallel)] # for holding data
+        data = [items.copy() for _ in range(parallel)] # for holding data
         processes = []
         for _ in range(parallel):
             print(f"starting process {_}")
@@ -97,23 +101,6 @@ if os.path.exists("items_raw.json") :
         for _ in processes:
             print(f"joining process {_}")
             _.join()
-    """
-        for i in range(int(intervals_per_day * number_of_days)):
-            timestamp = int(start_time) - (5 * 60 * i) # the number of seconds in the number of five minute chunks that we're subtracting
-            timestamp = str(timestamp)
-
-            response = requests.get(url + timestamp, headers=headers).json()["data"]
-
-            for item_id in items.keys():
-                if item_id in response.keys():
-                    item = response[item_id]
-                    items[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
-
-            if i % 10 == 0:
-                print(i)
-    """
-
-
 
 with open("items_raw.json", "w") as raw:
     json.dump(items, raw)
