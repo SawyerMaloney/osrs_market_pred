@@ -54,6 +54,17 @@ else:
         json.dump(item_ids, names)
 
 
+# changing data manipulation to be 1d--just prices
+for key in all_data.keys():
+    for item in range(len(all_data[key])):
+        tup = all_data[key][item]
+        low = tup[0]
+        low_vol = tup[1]
+        high = tup[2]
+        high_vol = tup[3]
+
+        all_data[key][item] = (low * low_vol + high * high_vol) / (low_vol + high_vol)
+
 # copying data over so that it is in a tensor and not a dictionary
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
@@ -61,12 +72,15 @@ data_dtype = torch.float
 timeseries_total_length = len(all_data[item_ids[0]])
 number_of_items = len(item_ids)
 
-# changing data manipulation to be 1d--just prices
-for key in all_data.keys():
-    for item in range(len(all_data[key])):
-        all_data[key][item] = all_data[key][item][0]
+# set fields_per_item. Might just be 1 value, in which case it won't have a length
+fields_per_item = None
+try:
+    fields_per_item = len(all_data[item_ids[0]][0])
+except:
+    fields_per_item = 1
 
-data = torch.zeros((timeseries_total_length, number_of_items), dtype=data_dtype, device=device)
+
+data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype, device=device).squeeze() # squeeze in case number of items is 1
 # copy data over
 for i in range(len(item_ids)):
     data[:,i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
@@ -103,7 +117,7 @@ def train_one_epoch():
 
         # the target value (five minutes in the future)
         # taking only id=2 
-        labels = data[index + sequence_length + 1, item_ids.index("2")]
+        labels = data[index + sequence_length + 1, item_ids.index("440")]
 
         optimizer.zero_grad()
         
@@ -137,7 +151,7 @@ epoch_length = 1000
 
 # input_size = (number_of_items, fields_per_item)
 input_size = number_of_items
-hidden_size = 8
+hidden_size = 256
 output_size = 1
 num_layers = 3
 model = PricePredictorRNN(input_size, hidden_size, output_size, device, num_layers=num_layers)
