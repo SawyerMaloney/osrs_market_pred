@@ -44,6 +44,9 @@ def get_data(thread_num, start, num_iters, interval_time, data, parallel):
             if item_id in response.keys():
                 item = response[item_id]
                 data[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
+            if item_id not in response.keys():
+                # item was not shown, ie was not traded at ll
+                data[item_id].insert(0, (0, 0, 0, 0))
         after = time.perf_counter()
         print(f"data adding time: {(after - before):.2f}")
         iteration = int((range_start - i) / (interval_time))
@@ -57,12 +60,6 @@ response = requests.get(url + timestamp, headers=headers).json()["data"]
 for key in response.keys():
     # want to do some data cleaning right now
     r = response[key]
-    # removing this because I want more data, even if there is a lot of nones, so that it is consistent
-    """
-    if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or r["highPriceVolume"] + r["lowPriceVolume"] < 500):
-        # get rid of items that don't have enough data or won't have enough volume to be helpful
-        items[key] = [] # will be appending each piece of data here
-    """
     items[key] = []
 
 print(f"number of items we are fetching: {len(items.keys())}")
@@ -123,9 +120,12 @@ with open("items_raw.json", "w") as raw:
 # replace None ==> 0 (since that's the value it is supposed to be)
 for key in items.keys(): # each timeseries, one for each item
     for tup in items[key]: # each four value tuple
-        for val in range(len(tup)):
-            if tup[val] == None:
-                tup[val] = 0
+        new_tup = []
+        for val in tup:
+            if val == None:
+                new_tup.append(0)
+            else:
+                new_tup.append(val)
 
 
 with open("items.json", "w") as items_json:
