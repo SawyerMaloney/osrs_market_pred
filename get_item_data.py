@@ -4,11 +4,6 @@ import json
 import os
 import datetime
 from multiprocessing import Process, Manager
-# ------------------------------ TODO ------------------------------ # 
-"""
-    Possibly want to make the last thread get the last couple of intervals that are being missed from rounding, but also with training it isn't the biggest deal
-    When it comes to predicting we will want to be sure though
-"""
 
 url = "https://prices.runescape.wiki/api/v1/osrs/5m?timestamp="
 mapping = "https://prices.runescape.wiki/api/v1/osrs/mapping"
@@ -40,15 +35,19 @@ def get_data(thread_num, start, num_iters, interval_time, data, parallel):
     for i in range(range_start, range_end, -1 * interval_time):
         timestamp = str(i)
 
+        before = time.perf_counter()
         response = requests.get(url + timestamp, headers=headers).json()["data"]
-        two_found = False
+        after = time.perf_counter()
+        print(f"request time: {(after - before):.2f}")
+        before = time.perf_counter()
         for item_id in items.keys():
             if item_id in response.keys():
                 item = response[item_id]
                 data[item_id].insert(0, (item["avgLowPrice"], item["lowPriceVolume"], item["avgHighPrice"], item["highPriceVolume"]))
-
+        after = time.perf_counter()
+        print(f"data adding time: {(after - before):.2f}")
         iteration = int((range_start - i) / (interval_time))
-        if iteration % 100 == 0:
+        if iteration % 10 == 0:
             print(f"thread {thread_num}: {iteration}")
 
 
@@ -58,15 +57,19 @@ response = requests.get(url + timestamp, headers=headers).json()["data"]
 for key in response.keys():
     # want to do some data cleaning right now
     r = response[key]
+    # removing this because I want more data, even if there is a lot of nones, so that it is consistent
+    """
     if not (r["avgHighPrice"] == None or r["avgLowPrice"] == None or r["highPriceVolume"] + r["lowPriceVolume"] < 500):
         # get rid of items that don't have enough data or won't have enough volume to be helpful
         items[key] = [] # will be appending each piece of data here
+    """
+    items[key] = []
 
 print(f"number of items we are fetching: {len(items.keys())}")
 
 
 # ten days of data
-number_of_days = 10
+number_of_days = 1
 seconds_per_minute = 60
 interval_time = 5 * seconds_per_minute # five minute increments, needs to be in seconds
 minutes_per_hour = 60
@@ -117,18 +120,13 @@ if os.path.exists("items_raw.json") :
 with open("items_raw.json", "w") as raw:
     json.dump(items, raw)
 
-# copy forward any missing prices because why not
-# TODO or to pay attention to -- this is probably not a good way of doing this and may screw with results
-# may just need to zero out these fields and hope that the model can handle it
-popping_keys = []
-for key in items.keys():
-    for price in range(len(items[key])):
-        if any(_ == None for _ in items[key][price]):
-            items[key][price] = items[key][price - 1]
+# replace None ==> 0 (since that's the value it is supposed to be)
+for key in items.keys(): # each timeseries, one for each item
+    for tup in items[key]: # each four value tuple
+        for val in range(len(tup)):
+            if tup[val] == None:
+                tup[val] = 0
 
-# some items might just be complete duds
-for key in popping_keys:
-    items.pop(key, None)
 
 with open("items.json", "w") as items_json:
     json.dump(items, items_json)
