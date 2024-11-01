@@ -55,6 +55,7 @@ else:
 
 
 # changing data manipulation to be 1d--just prices
+"""
 for key in all_data.keys():
     for item in range(len(all_data[key])):
         tup = all_data[key][item]
@@ -64,8 +65,8 @@ for key in all_data.keys():
         high_vol = tup[3]
 
         all_data[key][item] = (low * low_vol + high * high_vol) / (low_vol + high_vol)
+"""
 
-# copying data over so that it is in a tensor and not a dictionary
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
 
@@ -79,9 +80,11 @@ try:
 except:
     fields_per_item = 1
 
+print(f"size of timeseries: {timeseries_total_length}\nnumber_of_items: {number_of_items}\nfields_per_item: {fields_per_item}")
 
 data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype, device=device).squeeze() # squeeze in case number of items is 1
 # copy data over
+print(len(item_ids))
 for i in range(len(item_ids)):
     data[:,i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
@@ -94,15 +97,29 @@ class PricePredictorRNN(nn.Module):
         super(PricePredictorRNN, self).__init__()
         
         self.hidden_size = hidden_size
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, device=device)
+        # Four RNNs -- for low price, low price vol, high price, high price vol
+        self.low_price = nn.RNN(input_size, hidden_size, num_layers, device=device)
+        self.low_price_vol = nn.RNN(input_size, hidden_size, num_layers, device=device)
+        self.high_price = nn.RNN(input_size, hidden_size, num_layers, device=device)
+        self.high_price_vol = nn.RNN(input_size, hidden_size, num_layers, device=device)
         # Linear layer to map the RNN output to price prediction
         self.fc = nn.Linear(hidden_size, output_size, device=device)
     
     def forward(self, x):
-        # RNN expects input as (batch_size, sequence_length, input_size)
+        # x of size: (L, N, dim), dim = 4
+        # L     timeseries total length
+        # N     number of items
+        # dim   dim of each timeseries step
         rnn_out, h = self.rnn(x)
+        L, N, dim = x.shape
+        out = torch.zeros((4, L, self.hidden_size), device=device)
+        out[0] = self.low_price(x[:, :, 0].squeeze())[-1, :]
+        out[1] = self.low_price_vol(x[:, :, 1].squeeze())[-1, :]
+        out[2] = self.low_price(x[:, :, 2].squeeze())[-1, :]
+        out[3] = self.low_price(x[:, :, 3].squeeze())[-1, :]
+        out = out.view(L, self.hidden_size * 4)
         # Apply the linear layer to the last output of the RNN
-        out = self.fc(rnn_out[-1, :])  # Use the last time step output
+        out = self.fc(out)  # Use the last time step output
         return out
 
 def train_one_epoch():
@@ -116,7 +133,6 @@ def train_one_epoch():
         inputs = data[index:index + sequence_length]
 
         # the target value (five minutes in the future)
-        # taking only id=2 
         labels = data[index + sequence_length + 1, item_ids.index("440")]
 
         optimizer.zero_grad()

@@ -121,11 +121,13 @@ with open("items_raw.json", "w") as raw:
 for key in items.keys(): # each timeseries, one for each item
     for tup in items[key]: # each four value tuple
         new_tup = []
-        for val in tup:
+        for val in list(tup):
+            print(f"val found in tup: {val}")
             if val == None:
                 new_tup.append(0)
             else:
                 new_tup.append(val)
+        items[key] = new_tup
 
 
 with open("items.json", "w") as items_json:
