@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch
 import json
 import time
+import matplotlib.pyplot as plt
 
 device = torch.device("cpu")
 
@@ -93,37 +94,41 @@ print(f"size of data: {data.size()}")
 # ----------------- model definition ----------------- #
 
 class PricePredictorRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, device, num_layers=1):
+    def __init__(self, input_size, hidden_size, output_size, num_features, device, num_layers=1):
         super(PricePredictorRNN, self).__init__()
         
         self.hidden_size = hidden_size
+        self.num_features = num_features
         # Four RNNs -- for low price, low price vol, high price, high price vol
         self.low_price = nn.RNN(input_size, hidden_size, num_layers, device=device)
         self.low_price_vol = nn.RNN(input_size, hidden_size, num_layers, device=device)
         self.high_price = nn.RNN(input_size, hidden_size, num_layers, device=device)
         self.high_price_vol = nn.RNN(input_size, hidden_size, num_layers, device=device)
         # Linear layer to map the RNN output to price prediction
-        self.fc = nn.Linear(hidden_size, output_size, device=device)
+        self.fc = nn.Linear(hidden_size * num_features, output_size, device=device)
     
     def forward(self, x):
         # x of size: (L, N, dim), dim = 4
         # L     timeseries total length
         # N     number of items
         # dim   dim of each timeseries step
-        rnn_out, h = self.rnn(x)
+        # rnn_out, h = self.rnn(x)
         L, N, dim = x.shape
-        out = torch.zeros((4, L, self.hidden_size), device=device)
-        out[0] = self.low_price(x[:, :, 0].squeeze())[-1, :]
-        out[1] = self.low_price_vol(x[:, :, 1].squeeze())[-1, :]
-        out[2] = self.low_price(x[:, :, 2].squeeze())[-1, :]
-        out[3] = self.low_price(x[:, :, 3].squeeze())[-1, :]
-        out = out.view(L, self.hidden_size * 4)
+        out = torch.zeros((4, self.hidden_size), device=device)
+        # squeeze x[:, :, i] to [L, N], each item has one entry
+        out[0] = self.low_price(x[:, :, 0].squeeze())[0][-1, :] 
+        out[1] = self.low_price_vol(x[:, :, 1].squeeze())[0][-1, :]
+        out[2] = self.low_price(x[:, :, 2].squeeze())[0][-1, :]
+        out[3] = self.low_price(x[:, :, 3].squeeze())[0][-1, :]
+        out = out.view(self.hidden_size * self.num_features)
         # Apply the linear layer to the last output of the RNN
         out = self.fc(out)  # Use the last time step output
         return out
 
 def train_one_epoch():
     min_loss = 100000000000
+    losses = []
+    losses_tensor = torch.zeros(epoch_length, device=device)
     for i in range(epoch_length):
         # get data split
         # can't overrun the data with the sequence length or the one more that we need for the label
@@ -133,13 +138,16 @@ def train_one_epoch():
         inputs = data[index:index + sequence_length]
 
         # the target value (five minutes in the future)
-        labels = data[index + sequence_length + 1, item_ids.index("440")]
+        labels = data[index + sequence_length + 1, item_ids.index("440")].squeeze()
 
         optimizer.zero_grad()
         
         outputs = model(inputs)
 
         loss = criterion(outputs, labels)
+
+        losses.append(loss.item())
+        losses_tensor[i] = loss.item()
 
         if loss < min_loss:
             min_loss = loss
@@ -148,7 +156,7 @@ def train_one_epoch():
 
         optimizer.step()
         if i % (epoch_length / 10) == 0 and i != 0:
-            print(f"{i}/{epoch_length}: loss {loss:.2f}")
+            print(f"{i}/{epoch_length}: avg loss {losses_tensor.mean():.2f}")
         if i % 1000 == 0 and i != 0:
             print(f"batch {i + 1} loss: {loss}")
 
@@ -157,28 +165,35 @@ def train_one_epoch():
             print(outputs)
             print(f"min_loss: {min_loss}")
 
+    return losses
+
 # ----------------- hyperparameters and training calls ----------------- #
 
 # model parameters
 # how long each time sequence is
 sequence_length = 128
-epoch_length = 1000
+epoch_length = 100
 
 
 # input_size = (number_of_items, fields_per_item)
 input_size = number_of_items
 hidden_size = 256
-output_size = 1
+output_size = 4
 num_layers = 3
-model = PricePredictorRNN(input_size, hidden_size, output_size, device, num_layers=num_layers)
+model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, num_layers=num_layers)
 
 criterion = nn.MSELoss()
 
-learning_rate = 0.01
+learning_rate = 0.1
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-for i in range(5):
+losses = []
+
+for i in range(3):
     before = time.perf_counter()
-    train_one_epoch()
+    losses += train_one_epoch()
     after = time.perf_counter()
     print(f"time for {i} epoch: {(after - before):.2f}")
+
+plt.plot(losses)
+plt.show()
