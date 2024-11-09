@@ -11,3 +11,6 @@ By Sawyer Maloney | sawyerdmaloney@gmail.com
 
 ### Notes
     Changed the timestep to 24hrs instead of 5m because 5m seemed like a lot of random noise. 5m data is still stored in one of the files. Also, only grabbed like 5 items for the 24hrs timestep. Need to grab more, and then want to calculate correlation coefficient. Also required making changes to the get_item_data.py script so that we could use a different (and seemingly more efficient) method for getting information.
+
+### Utilized Publications
+https://www.sciencedirect.com/science/article/pii/S1746809424002933 -- pearson coefficient matrices
