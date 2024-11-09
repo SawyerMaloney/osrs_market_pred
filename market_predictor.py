@@ -55,18 +55,6 @@ else:
         json.dump(item_ids, names)
 
 
-# changing data manipulation to be 1d--just prices
-"""
-for key in all_data.keys():
-    for item in range(len(all_data[key])):
-        tup = all_data[key][item]
-        low = tup[0]
-        low_vol = tup[1]
-        high = tup[2]
-        high_vol = tup[3]
-
-        all_data[key][item] = (low * low_vol + high * high_vol) / (low_vol + high_vol)
-"""
 
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
@@ -85,7 +73,6 @@ print(f"size of timeseries: {timeseries_total_length}\nnumber_of_items: {number_
 
 data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype, device=device).squeeze() # squeeze in case number of items is 1
 # copy data over
-print(len(item_ids))
 for i in range(len(item_ids)):
     data[:,i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
@@ -94,16 +81,19 @@ print(f"size of data: {data.size()}")
 # ----------------- model definition ----------------- #
 
 class PricePredictorRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_features, device, num_layers=1):
+    def __init__(self, input_size, hidden_size, output_size, num_features, device, lstm=False, num_layer=1):
         super(PricePredictorRNN, self).__init__()
-        
+        if (lstm):
+            rnn_model = nn.LSTM
+        else:
+            rnn_model = nn.RNN
         self.hidden_size = hidden_size
         self.num_features = num_features
         # Four RNNs -- for low price, low price vol, high price, high price vol
-        self.low_price = nn.RNN(input_size, hidden_size, num_layers, device=device)
-        self.low_price_vol = nn.RNN(input_size, hidden_size, num_layers, device=device)
-        self.high_price = nn.RNN(input_size, hidden_size, num_layers, device=device)
-        self.high_price_vol = nn.RNN(input_size, hidden_size, num_layers, device=device)
+        self.low_price = rnn_model(input_size, hidden_size, num_layer, device=device)
+        self.low_price_vol = rnn_model(input_size, hidden_size, num_layer, device=device)
+        self.high_price = rnn_model(input_size, hidden_size, num_layer, device=device)
+        self.high_price_vol = rnn_model(input_size, hidden_size, num_layer, device=device)
         # Linear layer to map the RNN output to price prediction
         self.fc = nn.Linear(hidden_size * num_features, output_size, device=device)
     
@@ -125,7 +115,7 @@ class PricePredictorRNN(nn.Module):
         out = self.fc(out)  # Use the last time step output
         return out
 
-def train_one_epoch():
+def train_one_epoch(verbose=True):
     min_loss = 100000000000
     losses = []
     losses_tensor = torch.zeros(epoch_length, device=device)
@@ -138,7 +128,7 @@ def train_one_epoch():
         inputs = data[index:index + sequence_length]
 
         # the target value (five minutes in the future)
-        labels = data[index + sequence_length + 1, item_ids.index("440")].squeeze()
+        labels = data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
 
         optimizer.zero_grad()
         
@@ -155,15 +145,16 @@ def train_one_epoch():
         loss.backward()
 
         optimizer.step()
-        if i % (epoch_length / 10) == 0 and i != 0:
-            print(f"{i}/{epoch_length}: avg loss {losses_tensor.mean():.2f}")
-        if i % 1000 == 0 and i != 0:
-            print(f"batch {i + 1} loss: {loss}")
+        if verbose:
+            if i % (epoch_length / 10) == 0 and i != 0:
+                print(f"{i}/{epoch_length}: avg loss {losses_tensor.mean():.2f}")
+            if i % 1000 == 0 and i != 0:
+                print(f"batch {i + 1} loss: {loss}")
 
-        if i + 1 == epoch_length:
-            print(labels)
-            print(outputs)
-            print(f"min_loss: {min_loss}")
+            if i + 1 == epoch_length:
+                print(labels)
+                print(outputs)
+                print(f"min_loss: {min_loss}")
 
     return losses
 
@@ -171,20 +162,37 @@ def train_one_epoch():
 
 # model parameters
 # how long each time sequence is
-sequence_length = 128
-epoch_length = 100
+sequence_length = 20
+epoch_length = 500
 
 
 # input_size = (number_of_items, fields_per_item)
 input_size = number_of_items
 hidden_size = 256
-output_size = 4
-num_layers = 3
-model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, num_layers=num_layers)
+output_size = 2
+num_layer = 16
 
-criterion = nn.MSELoss()
+criterion = nn.L1Loss()
 
-learning_rate = 0.1
+learning_rate = 0.001
+
+# test different model parameters for optimization
+sequence_lengths = [5, 10, 30]
+hidden_sizes = [16, 64, 256, 1024]
+num_layers = [1, 2, 8, 64]
+learning_rates = [0.1, 0.01, 0.05, 0.001]
+
+for sequence_length in sequence_lengths:
+    for hidden_size in hidden_sizes:
+        for num_layer in num_layers:
+            for learning_rate in learning_rates:
+                model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
+                optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+                losses = train_one_epoch(verbose=False)
+                print(f"sq: {sequence_length}, hs: {hidden_size}, nl: {num_layer}, lr: {learning_rate}. average error: {(sum(losses)/len(losses)):.2f}")
+
+
+"""
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 losses = []
@@ -196,4 +204,7 @@ for i in range(3):
     print(f"time for {i} epoch: {(after - before):.2f}")
 
 plt.plot(losses)
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
 plt.show()
+"""

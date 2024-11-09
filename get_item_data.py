@@ -58,7 +58,6 @@ timestamp = str(time.time())
 
 response = requests.get(url + timestamp, headers=headers).json()["data"]
 for key in response.keys():
-    # want to do some data cleaning right now
     r = response[key]
     items[key] = []
 
@@ -66,7 +65,7 @@ print(f"number of items we are fetching: {len(items.keys())}")
 
 
 # ten days of data
-number_of_days = 1
+number_of_days = 10
 seconds_per_minute = 60
 interval_time = 5 * seconds_per_minute # five minute increments, needs to be in seconds
 minutes_per_hour = 60
@@ -85,33 +84,52 @@ if os.path.exists("items_raw.json") :
             items = json.load(raw)
     else:
         print("Using API calls.")
-        print(f"number of intervals: {intervals_per_day * number_of_days}")
+        method = input("Do you want to make 5m calls (n for day calls) (y/n): ")
+        if method == "y":
+            print("Making 5m interval calls.")
+            print(f"number of intervals: {intervals_per_day * number_of_days}")
 
-        # parallelizing by splitting the calls into ten sections
-        parallel = 8
-        dict_manager = Manager()
-        data = dict_manager.list([dict_manager.dict() for _ in range(parallel)])
-        # add keys to data dicts
-        for dicts in data:
-            for key in items.keys():
-                dicts[key] = dict_manager.list()
+            # parallelizing by splitting the calls into ten sections
+            parallel = 8
+            dict_manager = Manager()
+            data = dict_manager.list([dict_manager.dict() for _ in range(parallel)])
+            # add keys to data dicts
+            for dicts in data:
+                for key in items.keys():
+                    dicts[key] = dict_manager.list()
 
-        processes = []
-        num_iters = intervals_per_day * number_of_days # subject to change
-        for _ in range(parallel):
-            print(f"starting process {_}")
-            processes.append(Process(target=get_data, args=(_, start_time, num_iters, interval_time, data[_], parallel)))
-            processes[_].start()
-        for _ in processes:
-            print(f"joining process {_}")
-            _.join()
+            processes = []
+            num_iters = intervals_per_day * number_of_days # subject to change
+            for _ in range(parallel):
+                print(f"starting process {_}")
+                processes.append(Process(target=get_data, args=(_, start_time, num_iters, interval_time, data[_], parallel)))
+                processes[_].start()
+            for _ in processes:
+                print(f"joining process {_}")
+                _.join()
 
-        # now we have the list of dicts, so add each one to items
-        for array in data:
-            for key in array.keys():
-                items[key] = array[key] + items[key]
-
-        print(f"len of item '2': {len(items['2'])}")
+            # now we have the list of dicts, so add each one to items
+            for array in data:
+                for key in array.keys():
+                    items[key] = array[key] + items[key]
+        else:
+            # https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=24h&id=itemID
+            url = "https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=24h&id="
+            # use the above api to get year long data for the following items (for now):
+            # Nature runes: 561 
+            # Soul Runes: 566
+            # Blood Runes: 565 
+            # Law Runes: 563
+            print("Using timeseries api calls to make day long calls")
+            # overwrite items to only have our items
+            items = {"561": [], "566": [], "565": [], "563": []}
+            # since it is just five items, not going to parallelize
+            for item in items.keys():
+                # response is list of dictionaries, {timestamp, avgHigh, avgLow, highVol, lowVol
+                response = requests.get(url + item, headers=headers).json()["data"]
+                for entry in response:
+                    items[item].append((entry["avgLowPrice"], entry["lowPriceVolume"], entry["avgHighPrice"], entry["highPriceVolume"]))
+                
 
 
 with open("items_raw.json", "w") as raw:
