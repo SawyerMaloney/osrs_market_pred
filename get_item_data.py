@@ -121,9 +121,12 @@ if os.path.exists("items_raw.json") :
             # Blood Runes: 565 
             # Law Runes: 563
             print("Using timeseries api calls to make day long calls")
-            # overwrite items to only have our items
-            items = {"561": [], "566": [], "565": [], "563": []}
-            # since it is just five items, not going to parallelize
+            # overwrite items to only have our items (making it a bit faster to add items)
+            item_ids_int = [_ for _ in range(554, 567)]
+            items = {}
+            for _id in item_ids_int:
+                items[str(_id)] = []
+            # not going to parallelize
             for item in items.keys():
                 # response is list of dictionaries, {timestamp, avgHigh, avgLow, highVol, lowVol
                 response = requests.get(url + item, headers=headers).json()["data"]

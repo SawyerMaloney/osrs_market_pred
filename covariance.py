@@ -18,18 +18,69 @@ class covar:
     device = None
     item_ids = None
     dtype = torch.float
+    cov = None
+    item_names = None
 
     def __init__(self, device):
         if os.path.exists("items.json"):
             with open("items.json", "r") as i:
                 self.items = json.load(i)
+        else:
+            raise Exception("items.json does not exist")
         self.run()
 
     def run(self):
         # steps: get item variables, create tensor, calculate "average" price so that the array is 2d, squeeze, calculate cov, plt it out
+        self.load_item_names()
         self.set_item_variables()
         self.create_tensor()
         self.make_2d()
+        self.set_item_variables()
+        # now self.items: (timeseries, items), but I think cov needs (items, timeseries), so .T it
+        self.cov = torch.cov(self.items.T)
+        self.corr = torch.corrcoef(self.items.T)
+        self.plot_cov()
+
+    def plot_cov(self):
+        # plot the matrix and add the necessary annotations to the plot
+        item_names = self.get_item_names()
+        fig, ax = plt.subplots(figsize=(10, 8))
+        mat = ax.matshow(self.cov, cmap='coolwarm')
+        plt.colorbar(mat)
+        plt.title("Covariance Heatmap", pad=20)
+        ax.set_xticks(range(len(item_names)))
+        ax.set_yticks(range(len(item_names)))
+        ax.set_xticklabels(item_names, rotation=45)
+        ax.set_yticklabels(item_names)
+
+        # also going to plot self.corr
+        fig2, ax2 = plt.subplots(figsize=(10, 8))
+        mat2 = ax2.matshow(self.corr, cmap='coolwarm')
+        plt.colorbar(mat2)
+        plt.title("Correlation Coefficient Heatmap", pad=20)
+        ax2.set_xticks(range(len(item_names)))
+        ax2.set_yticks(range(len(item_names)))
+        ax2.set_xticklabels(item_names, rotation=45)
+        ax2.set_yticklabels(item_names)
+
+        # show 'em
+        plt.show()
+
+    def get_item_names(self):
+        # get and return a list of the items in the data for plotting purposes
+        item_names = []
+        for _id in self.item_ids:
+            item_names.append(self.item_names[_id])
+
+        return item_names
+
+    def load_item_names(self):
+        # purpose is to load item_names.json from storage
+        if os.path.exists("item_names.json"):
+            with open("item_names.json", "r") as n:
+                self.item_names = json.load(n)
+        else:
+            raise Exception("item_names.json does not exist.")
 
     def make_2d(self):
         items_2d = torch.zeros((self.timeseries_length, self.num_items), dtype=self.dtype, device=self.device)
