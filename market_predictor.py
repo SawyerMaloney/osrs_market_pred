@@ -176,26 +176,7 @@ criterion = nn.L1Loss()
 
 learning_rate = 0.001
 
-# test different model parameters for optimization
-# temporarily quoted this code for the sake of my own testing"
-"""
-sequence_lengths = [5, 10, 30]
-hidden_sizes = [16, 64, 256, 1024]
-num_layers = [1, 2, 8, 64]
-learning_rates = [0.1, 0.01, 0.05, 0.001]
-
-
-for sequence_length in sequence_lengths:
-    for hidden_size in hidden_sizes:
-        for num_layer in num_layers:
-            for learning_rate in learning_rates:
-                model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
-                optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-                losses = train_one_epoch(verbose=False)
-                print(f"sq: {sequence_length}, hs: {hidden_size}, nl: {num_layer}, lr: {learning_rate}. average error: {(sum(losses)/len(losses)):.2f}")
-
-"""
-"""
+model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 losses = []
@@ -210,7 +191,7 @@ plt.plot(losses)
 plt.xlabel("Epoch")
 plt.ylabel("Loss")
 plt.show()
-"""
+
 # ----------------- hyperparameters, training, testing, train-test split, naive trading strategy ----------------- Andrew#
 
 
