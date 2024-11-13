@@ -80,7 +80,7 @@ for i in range(len(item_ids)):
 print(f"size of data: {data.size()}")
 
 
-def train_one_epoch(verbose=True):
+def train_one_epoch(criterion, verbose=True):
     min_loss = 100000000000
     losses = []
     losses_tensor = torch.zeros(epoch_length, device=device)
@@ -123,23 +123,6 @@ def train_one_epoch(verbose=True):
 
     return losses
 
-# ----------------- hyperparameters and training calls ----------------- #
-
-# model parameters
-# how long each time sequence is
-sequence_length = 20
-epoch_length = 500
-
-
-# input_size = (number_of_items, fields_per_item)
-input_size = number_of_items
-hidden_size = 256
-output_size = 2
-num_layer = 16
-
-criterion = nn.L1Loss()
-
-learning_rate = 0.001
 
 # ----------------- hyperparameters, training, testing, train-test split, naive trading strategy ----------------- Andrew#
 
@@ -172,7 +155,7 @@ def test_model(model, test_data, sequence_length):
 
     return test_losses, error
 
-def train_and_evaluate(model, optimizer, train_data, test_data, epochs=10, sequence_length=20):
+def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epochs=10, sequence_length=20):
     training_losses = []
     test_losses = []
     error_values = []
@@ -182,7 +165,7 @@ def train_and_evaluate(model, optimizer, train_data, test_data, epochs=10, seque
         
         # Training
         model.train()
-        epoch_losses = train_one_epoch(verbose=False)
+        epoch_losses = train_one_epoch(criterion, verbose=False)
         avg_train_loss = sum(epoch_losses) / len(epoch_losses)
         training_losses.append(avg_train_loss)
         
@@ -216,7 +199,7 @@ def train_and_evaluate(model, optimizer, train_data, test_data, epochs=10, seque
     plt.tight_layout()
     plt.show()
 
-def naive_trading_strategy(model, test_data, sequence_length, initial_balance=10000):
+def naive_trading_strategy(model, test_data, sequence_length, criterion, initial_balance=10000):
     model.eval()
     balance = initial_balance
     inventory = 0
@@ -255,7 +238,13 @@ def naive_trading_strategy(model, test_data, sequence_length, initial_balance=10
     print(f"Balance + current worth: {balance+(current_price*inventory):.2f}")
     return 
 
+criterion = nn.L1Loss()
 
+input_size = number_of_items
+output_size = 2
+epoch_length = 100
+
+num_layer = 16
 epochs = 10
 sequence_length = 10
 hidden_size = 16
@@ -266,8 +255,8 @@ model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item,
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 #Train and test
-train_and_evaluate(model, optimizer, train_data, test_data, epochs=epochs, sequence_length=sequence_length)
+train_and_evaluate(model, optimizer, train_data, test_data, criterion, epochs=epochs, sequence_length=sequence_length)
 
 #Naive trading
 initial_balance = 10000
-test_losses, error = naive_trading_strategy(model, test_data, sequence_length, initial_balance)
+test_losses, error = naive_trading_strategy(model, test_data, sequence_length, criterion, initial_balance)
