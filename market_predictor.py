@@ -177,10 +177,13 @@ criterion = nn.L1Loss()
 learning_rate = 0.001
 
 # test different model parameters for optimization
+# temporarily quoted this code for the sake of my own testing"
+"""
 sequence_lengths = [5, 10, 30]
 hidden_sizes = [16, 64, 256, 1024]
 num_layers = [1, 2, 8, 64]
 learning_rates = [0.1, 0.01, 0.05, 0.001]
+
 
 for sequence_length in sequence_lengths:
     for hidden_size in hidden_sizes:
@@ -191,7 +194,7 @@ for sequence_length in sequence_lengths:
                 losses = train_one_epoch(verbose=False)
                 print(f"sq: {sequence_length}, hs: {hidden_size}, nl: {num_layer}, lr: {learning_rate}. average error: {(sum(losses)/len(losses)):.2f}")
 
-
+"""
 """
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -208,3 +211,133 @@ plt.xlabel("Epoch")
 plt.ylabel("Loss")
 plt.show()
 """
+# ----------------- hyperparameters, training, testing, train-test split, naive trading strategy ----------------- Andrew#
+
+
+# Split the data into training and testing sets
+train_ratio = 0.8
+train_size = int(len(all_data[item_ids[0]]) * train_ratio)
+
+train_data = data[:train_size]
+test_data = data[train_size:]
+
+
+def test_model(model, test_data, sequence_length):
+    model.eval()
+    error = 0
+    test_losses = []
+    with torch.no_grad():
+        for i in range(len(test_data) - sequence_length - 1):
+            inputs = test_data[i:i + sequence_length]
+
+            # Target
+            labels = test_data[i + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
+
+            outputs = model(inputs)
+
+            loss = criterion(outputs, labels)
+            test_losses.append(loss.item())
+            
+            #(difference between predicted and actual price)
+            error += (outputs - labels).sum().item()
+
+    return test_losses, error
+
+def train_and_evaluate(model, optimizer, train_data, test_data, epochs=10, sequence_length=20):
+    training_losses = []
+    test_losses = []
+    error_values = []
+    
+    for epoch in range(epochs):
+        print(f"Epoch {epoch+1}/{epochs}")
+        
+        # Training
+        model.train()
+        epoch_losses = train_one_epoch(verbose=False)
+        avg_train_loss = sum(epoch_losses) / len(epoch_losses)
+        training_losses.append(avg_train_loss)
+        
+        # Testing
+        test_loss, error = test_model(model, test_data, sequence_length)
+        avg_test_loss = sum(test_loss) / len(test_loss)
+        test_losses.append(avg_test_loss)
+        error_values.append(error)
+        
+        print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, Test Loss: {avg_test_loss:.4f}, Error: {error:.4f}")
+    
+    plt.figure(figsize=(12, 6))
+    
+    # Plotting training and test loss across epochs
+    plt.subplot(1, 2, 1)
+    plt.plot(training_losses, label='Train Loss')
+    plt.plot(test_losses, label='Test Loss')
+    plt.title('Loss per Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    
+    # Plotting error across epochs
+    plt.subplot(1, 2, 2)
+    plt.plot(error_values, label='Error')
+    plt.title('Error per Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Error')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.show()
+
+def naive_trading_strategy(model, test_data, sequence_length, initial_balance=10000):
+    model.eval()
+    balance = initial_balance
+    inventory = 0
+    #purchase_price = 0
+        
+    with torch.no_grad():
+        for i in range(len(test_data) - sequence_length - 1):
+            inputs = test_data[i:i + sequence_length]
+            current_price = test_data[i, item_ids.index("566")].squeeze()[0]  # Current price
+            future_price = test_data[i + sequence_length + 1, item_ids.index("566")].squeeze()[0]  # Future price
+            labels = test_data[i + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
+
+            # Model prediction
+            outputs = model(inputs)
+            predicted_future_price = outputs[0].item()  # Predicted price
+
+            # Naive trading logic
+            if predicted_future_price > current_price:
+                # Buy condition: If we predict a rise in price and have enough balance
+                if balance > current_price:
+                    #purchase_price = current_price
+                    inventory += 1
+                    balance -= current_price
+                    print(f"Bought 1 item at {current_price:.2f}, new balance: {balance:.2f}")
+            elif predicted_future_price < current_price and inventory > 0:
+                # Sell condition: If we predict a price drop and have inventory
+                balance = balance + (current_price*inventory)
+                print(f"Sold {inventory} items at {current_price:.2f}, new balance: {balance:.2f}")
+                inventory = 0
+
+    
+    # Final balance and profit
+    print(f"Final balance: {balance:.2f}, remaining inventory: {inventory}")
+    print(f"Current worth of inventory: {current_price*inventory:.2f}")
+    print(f"Balance + current worth: {balance+(current_price*inventory):.2f}")
+    return 
+
+
+epochs = 10
+sequence_length = 10
+hidden_size = 16
+num_layer = 8
+learning_rate = 0.001
+
+model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+#Train and test
+train_and_evaluate(model, optimizer, train_data, test_data, epochs=epochs, sequence_length=sequence_length)
+
+#Naive trading
+initial_balance = 10000
+test_losses, error = naive_trading_strategy(model, test_data, sequence_length, initial_balance)
