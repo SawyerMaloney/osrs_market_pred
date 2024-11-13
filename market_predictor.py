@@ -214,19 +214,20 @@ def naive_trading_strategy(model, test_data, sequence_length, criterion, initial
 
             # Model prediction
             outputs = model(inputs)
+            print(f"shape of model prediction: {outputs.shape}")
+            print(f"value of model prediction: {outputs}")
             predicted_future_price = outputs[0].item()  # Predicted price
-
+            print(f"current price: {current_price:.2f}. predicted price: {predicted_future_price:.2f}")
             # Naive trading logic
             if predicted_future_price > current_price:
                 # Buy condition: If we predict a rise in price and have enough balance
                 if balance > current_price:
-                    #purchase_price = current_price
+                    # purchase_price = current_price
                     inventory += 1
                     balance -= current_price
                     print(f"Bought 1 item at {current_price:.2f}, new balance: {balance:.2f}")
-            elif predicted_future_price < current_price and inventory > 0:
-                # Sell condition: If we predict a price drop and have inventory
-                # note -- do we maybe want to keep track of the price we bought at, or maybe the average price we bought at, so that we can sell once we'd be making a profit? (and maybe cap losses by selling at some point too)
+            elif inventory > 0 and predicted_future_price < current_price:
+                # sell condition -- if our current price is higher than the predicted next price
                 balance = balance + (current_price*inventory)
                 print(f"Sold {inventory} items at {current_price:.2f}, new balance: {balance:.2f}")
                 inventory = 0
@@ -236,15 +237,13 @@ def naive_trading_strategy(model, test_data, sequence_length, criterion, initial
     print(f"Final balance: {balance:.2f}, remaining inventory: {inventory}")
     print(f"Current worth of inventory: {current_price*inventory:.2f}")
     print(f"Balance + current worth: {balance+(current_price*inventory):.2f}")
-    return 
-
-criterion = nn.L1Loss()
+# criterion = nn.L1Loss()
+criterion = nn.MSELoss()
 
 input_size = number_of_items
 output_size = 2
-epoch_length = 100
+epoch_length = 500
 
-num_layer = 16
 epochs = 10
 sequence_length = 10
 hidden_size = 16
@@ -253,10 +252,17 @@ learning_rate = 0.001
 
 model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
+do_you_want_to_train = input("Do you want to train a new model (y/n): ")
+if do_you_want_to_train == "y":
 #Train and test
-train_and_evaluate(model, optimizer, train_data, test_data, criterion, epochs=epochs, sequence_length=sequence_length)
+    train_and_evaluate(model, optimizer, train_data, test_data, criterion, epochs=epochs, sequence_length=sequence_length)
+# save the model
+    torch.save(model, "model.pt")
+
+if do_you_want_to_train == "n":
+    model = torch.load("model.pt", weights_only=False)
 
 #Naive trading
 initial_balance = 10000
-test_losses, error = naive_trading_strategy(model, test_data, sequence_length, criterion, initial_balance)
+naive_trading_strategy(model, test_data, sequence_length, criterion, initial_balance)
+# test_losses, error = 
