@@ -176,24 +176,7 @@ criterion = nn.L1Loss()
 
 learning_rate = 0.001
 
-model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-losses = []
-
-for i in range(3):
-    before = time.perf_counter()
-    losses += train_one_epoch()
-    after = time.perf_counter()
-    print(f"time for {i} epoch: {(after - before):.2f}")
-
-plt.plot(losses)
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.show()
-
 # ----------------- hyperparameters, training, testing, train-test split, naive trading strategy ----------------- Andrew#
-
 
 # Split the data into training and testing sets
 train_ratio = 0.8
@@ -295,6 +278,7 @@ def naive_trading_strategy(model, test_data, sequence_length, initial_balance=10
                     print(f"Bought 1 item at {current_price:.2f}, new balance: {balance:.2f}")
             elif predicted_future_price < current_price and inventory > 0:
                 # Sell condition: If we predict a price drop and have inventory
+                # note -- do we maybe want to keep track of the price we bought at, or maybe the average price we bought at, so that we can sell once we'd be making a profit? (and maybe cap losses by selling at some point too)
                 balance = balance + (current_price*inventory)
                 print(f"Sold {inventory} items at {current_price:.2f}, new balance: {balance:.2f}")
                 inventory = 0
