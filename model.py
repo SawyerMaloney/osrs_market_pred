@@ -33,8 +33,8 @@ class PricePredictorRNN(nn.Module):
         # squeeze x[:, :, i] to [L, N], each item has one entry
         out[0] = self.low_price(x[:, :, 0].squeeze())[0][-1, :] 
         out[1] = self.low_price_vol(x[:, :, 1].squeeze())[0][-1, :]
-        out[2] = self.low_price(x[:, :, 2].squeeze())[0][-1, :]
-        out[3] = self.low_price(x[:, :, 3].squeeze())[0][-1, :]
+        out[2] = self.high_price(x[:, :, 2].squeeze())[0][-1, :]
+        out[3] = self.high_price_vol(x[:, :, 3].squeeze())[0][-1, :]
         out = out.view(self.hidden_size * self.num_features)
         # Apply the linear layer to the last output of the RNN
         out = self.fc(out)  # Use the last time step output

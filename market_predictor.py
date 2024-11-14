@@ -80,14 +80,14 @@ for i in range(len(item_ids)):
 print(f"size of data: {data.size()}")
 
 
-def train_one_epoch(criterion, verbose=True):
+def train_one_epoch(data, verbose=True):
     min_loss = 100000000000
     losses = []
     losses_tensor = torch.zeros(epoch_length, device=device)
     for i in range(epoch_length):
         # get data split
         # can't overrun the data with the sequence length or the one more that we need for the label
-        index = torch.randint(0, len(all_data[item_ids[0]]) - sequence_length - 1, (1,), device=device)
+        index = torch.randint(0, len(data) - sequence_length - 1, (1,), device=device)
         # time series
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length]
@@ -123,17 +123,6 @@ def train_one_epoch(criterion, verbose=True):
 
     return losses
 
-
-# ----------------- hyperparameters, training, testing, train-test split, naive trading strategy ----------------- Andrew#
-
-# Split the data into training and testing sets
-train_ratio = 0.8
-train_size = int(len(all_data[item_ids[0]]) * train_ratio)
-
-train_data = data[:train_size]
-test_data = data[train_size:]
-
-
 def test_model(model, test_data, sequence_length):
     model.eval()
     error = 0
@@ -165,7 +154,7 @@ def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch
         
         # Training
         model.train()
-        epoch_losses = train_one_epoch(criterion, verbose=False)
+        epoch_losses = train_one_epoch(train_data, verbose=False)
         avg_train_loss = sum(epoch_losses) / len(epoch_losses)
         training_losses.append(avg_train_loss)
         
@@ -245,10 +234,18 @@ output_size = 2
 epoch_length = 500
 
 epochs = 10
-sequence_length = 10
-hidden_size = 16
-num_layer = 8
+sequence_length = 20
+hidden_size = 32
+num_layer = 2
 learning_rate = 0.001
+
+# Split the data into training and testing sets
+train_ratio = 0.8
+train_size = int(len(data) * train_ratio)
+
+train_data = data[:train_size]
+test_data = data[train_size:]
+print(train_data.shape, test_data.shape)
 
 model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
