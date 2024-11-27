@@ -16,8 +16,8 @@ all_data = None
 item_names = None
 
 
-if os.path.exists("items.json"):
-    with open("items.json", "r") as items:
+if os.path.exists("runescape_data.json"):
+    with open("runescape_data.json", "r") as items:
         all_data = json.load(items)
 
 def find_good_items():
@@ -108,7 +108,7 @@ def train_one_epoch(data, verbose=True):
             min_loss = loss
 
         loss.backward()
-
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         if verbose:
             if i % (epoch_length / 10) == 0 and i != 0:
@@ -162,7 +162,7 @@ def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch
         test_loss, error = test_model(model, test_data, sequence_length)
         avg_test_loss = sum(test_loss) / len(test_loss)
         test_losses.append(avg_test_loss)
-        error_values.append(error)
+        error_values.append(abs(error))
         
         print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, Test Loss: {avg_test_loss:.4f}, Error: {error:.4f}")
     
@@ -233,22 +233,36 @@ input_size = number_of_items
 output_size = 2
 epoch_length = 500
 
+#small dataset parameters
+#epochs = 10
+#sequence_length = 20
+#hidden_size = 32
+#num_layer = 2
+#learning_rate = 0.001
 epochs = 10
-sequence_length = 20
-hidden_size = 32
+sequence_length = 10
+hidden_size = 16
 num_layer = 2
-learning_rate = 0.001
+learning_rate = 0.0001
+
+#Standardize for bigger dataset
+def standardize(data):
+    mean = data.mean(dim=0, keepdim=True)
+    std = data.std(dim=0, keepdim=True)
+    return (data - mean) / (std + 1e-20)  # Adding a small epsilon to avoid division by zero
+
+standardized_data = standardize(data)
 
 # Split the data into training and testing sets
 train_ratio = 0.8
-train_size = int(len(data) * train_ratio)
+train_size = int(len(standardized_data) * train_ratio)
 
-train_data = data[:train_size]
-test_data = data[train_size:]
+train_data = standardized_data[:train_size]
+test_data = standardized_data[train_size:]
 print(train_data.shape, test_data.shape)
 
 model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-2)
 do_you_want_to_train = input("Do you want to train a new model (y/n): ")
 if do_you_want_to_train == "y":
 #Train and test

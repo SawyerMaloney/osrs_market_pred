@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
-# ----------------- model definition ----------------- #
+# ----------------- API dataset model definition ----------------- #
 
 class PricePredictorRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_features, device, lstm=False, num_layer=1):
@@ -14,6 +14,7 @@ class PricePredictorRNN(nn.Module):
         self.device = device
         self.hidden_size = hidden_size
         self.num_features = num_features
+        self.dropout = nn.Dropout(0.2)
         # Four RNNs -- for low price, low price vol, high price, high price vol
         self.low_price = rnn_model(input_size, hidden_size, num_layer, device=device)
         self.low_price_vol = rnn_model(input_size, hidden_size, num_layer, device=device)
@@ -37,5 +38,6 @@ class PricePredictorRNN(nn.Module):
         out[3] = self.high_price_vol(x[:, :, 3].squeeze())[0][-1, :]
         out = out.view(self.hidden_size * self.num_features)
         # Apply the linear layer to the last output of the RNN
+        out=self.dropout(out)
         out = self.fc(out)  # Use the last time step output
         return out
