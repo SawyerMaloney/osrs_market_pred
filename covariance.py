@@ -5,6 +5,7 @@ import torch
 import json
 import time
 import matplotlib.pyplot as plt
+import sys
 
 """
     Get the data from items.json and use torch.cov and torch.corrcoef to calculate the correlation matrix for them
@@ -20,13 +21,15 @@ class covar:
     dtype = torch.float
     cov = None
     item_names = None
+    filepath = None
 
-    def __init__(self, device):
-        if os.path.exists("items.json"):
-            with open("items.json", "r") as i:
+    def __init__(self, device, filepath):
+        if os.path.exists(filepath):
+            with open(filepath, "r") as i:
                 self.items = json.load(i)
+                self.fileptah = filepath
         else:
-            raise Exception("items.json does not exist")
+            raise Exception(f"{filepath} does not exist")
         self.run()
 
     def run(self):
@@ -129,6 +132,11 @@ class covar:
         self.set_item_variables()
         return f"num_items: {self.num_items}\ntimeseries_length: {self.timeseries_length}\nfields_per_item: {self.fields_per_item}"
 
-c = covar(torch.device("cpu"))
 
-print(c.info())
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        filepath = sys.argv[1]
+        c = covar(torch.device("cpu"), filepath)
+        print(c.info())
+    else:
+        print("usage: > python3 covariance.py *filepath*")
