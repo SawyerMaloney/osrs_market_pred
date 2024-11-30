@@ -139,27 +139,44 @@ class GetData:
         return data
 
 
+    # find all items that we *might* want to use, which includes anything with high enough volume (greater than, like, 10)
     def make_24hr_calls(self, number_of_days):
         self.url = "https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=24h&id="
         # use the above api to get year long data for the following items (for now):
         print("Using timeseries api calls to make day long calls")
         # overwrite items to only have our items (making it a bit faster to add items)
-        item_ids_int = [_ for _ in range(554, 567)] # rune id's
+        # item_ids_int = [_ for _ in range(554, 567)] # rune id's
+        item_ids_int = self.get_item_ids_24hrs()
+        print(f"looking for {len(item_ids_int)} items:")
         self.items = {}
         for _id in item_ids_int:
             self.items[str(_id)] = []
         # not going to parallelize
+        index = 0
         for item in self.items.keys():
             # response is list of dictionaries, {timestamp, avgHigh, avgLow, highVol, lowVol}
             response = requests.get(self.url + item, headers=self.headers).json()["data"]
+            if index % 100 == 0:
+                print(f"requesting item {index}")
+            index += 1
             for entry in response:
                 self.items[item].append((entry["avgLowPrice"], entry["lowPriceVolume"], entry["avgHighPrice"], entry["highPriceVolume"]))
-                        
+
+    def get_item_ids_24hrs(self):
+        # make a one hour request to filter
+        url = "https://prices.runescape.wiki/api/v1/osrs/1h"
+        item_ids_int = []
+        response = requests.get(url, headers=self.headers).json()["data"]
+        for item in response.keys():
+            if response[item]["lowPriceVolume"] + response[item]["highPriceVolume"] > 10:
+                item_ids_int.append(int(item))
+
+        return item_ids_int
 
     # dump raw data to file
     def dump_to_raw(self): 
         with open("items_raw.json", "w") as raw:
-            json.dump(self.items, raw)
+            json.dump(self.items, raw, indent=4)
 
     # replace None ==> 0 so that json doesn't save as null
     def clean_items(self):
@@ -176,7 +193,7 @@ class GetData:
 
     def dump_to_items(self):
         with open("items.json", "w") as items_json:
-            json.dump(self.items, items_json)
+            json.dump(self.items, items_json, indent=4)
 
 
 data = GetData()
