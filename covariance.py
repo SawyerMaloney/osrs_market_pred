@@ -28,7 +28,15 @@ class covar:
         if os.path.exists(filepath):
             with open(filepath, "r") as i:
                 self.items = json.load(i)
-                self.fileptah = filepath
+                self.filepath = filepath
+
+                if cov:
+                    # remove all but
+                    item_ids = ["554", "555", "556", "557", "558", "559", "560", "561", "562", "563", "564", "565", "566"]
+                    item_repl = {}
+                    for _id in item_ids:
+                        item_repl[_id] = self.items[_id]
+                    self.items = item_repl
         else:
             raise Exception(f"{filepath} does not exist")
         self.run()
@@ -51,6 +59,8 @@ class covar:
             self.print_good_items()
             self.write_ids_to_file()
         else:
+            # want this to just use
+            # item_ids = ["554", "555", "556", "557", "558", "559", "560", "561", "562", "563", "564", "565", "566"]
             self.plot_cov()
 
     def write_ids_to_file(self):
@@ -184,7 +194,7 @@ class covar:
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         filepath = sys.argv[1]
-        c = covar(torch.device("cpu"), filepath, cov=False)
+        c = covar(torch.device("cpu"), filepath, cov=True)
         print(c.info())
     else:
         print("usage: > python3 covariance.py *filepath*")

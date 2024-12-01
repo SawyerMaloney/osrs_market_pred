@@ -29,10 +29,6 @@ print("loading item names from item_ids.json. delete this file to re-calculate g
 with open("item_ids.json", "r") as names:
     item_ids = json.load(names)
 
-# ------------------------------- editing out all other items except 566 -------------------------------
-# all_data = {"566": all_data["566"]}
-# item_ids = ["566"]
-
 
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
