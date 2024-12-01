@@ -65,7 +65,6 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
             labels = unstandardized_data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
         else:
             labels = unstandardized_data[index + sequence_length + 1, [0, 2]].view(1, 1, 2)
-            print(f"label: {labels}. shape: {labels.shape}")
 
         optimizer.zero_grad()
         outputs = model(inputs)
