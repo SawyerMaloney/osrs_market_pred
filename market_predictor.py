@@ -1,10 +1,8 @@
 import os
 import torch.nn as nn
-import torch.nn.functional as F
 import torch
 import json
-import matplotlib.pyplot as plt
-from model import PricePredictorRNN, train_one_epoch, test_model, train_and_evaluate
+from model import PricePredictorRNN, train_and_evaluate
 
 device = torch.device("cpu")
 
@@ -69,10 +67,7 @@ def naive_trading_strategy(model, test_data, sequence_length, criterion, initial
 
             # Model prediction
             outputs = model(inputs)
-            print(f"shape of model prediction: {outputs.shape}")
-            print(f"value of model prediction: {outputs}")
             predicted_future_price = outputs[0].item()  # Predicted price
-            print(f"current price: {current_price:.2f}. predicted price: {predicted_future_price:.2f}")
             # Naive trading logic
             if predicted_future_price > current_price:
                 # Buy condition: If we predict a rise in price and have enough balance
@@ -103,7 +98,7 @@ epochs = 10
 sequence_length = 10
 hidden_size = 16
 num_layer = 2
-learning_rate = 0.0001
+learning_rate = 0.001
 
 
 # Standardize for bigger dataset
@@ -120,7 +115,7 @@ train_ratio = 0.8
 train_size = int(len(standardized_data) * train_ratio)
 
 train_data = standardized_data[:train_size]
-test_data = standardized_data[train_size:]
+test_data = data[train_size:]
 print(train_data.shape, test_data.shape)
 
 model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
@@ -128,7 +123,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=
 do_you_want_to_train = input("Do you want to train a new model (y/n): ")
 if do_you_want_to_train == "y":
     # Train and test
-    train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch_length, device, item_ids, epochs=epochs, sequence_length=sequence_length)
+    train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch_length, device, item_ids, data, epochs=epochs, sequence_length=sequence_length)
     # save the model
     torch.save(model, "model.pt")
 

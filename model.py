@@ -44,7 +44,7 @@ class PricePredictorRNN(nn.Module):
         return out
 
 
-def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, verbose=True):
+def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, unstandardized_data, verbose=True):
     min_loss = 100000000000
     losses = []
     losses_tensor = torch.zeros(epoch_length, device=device)
@@ -62,9 +62,9 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
 
         # the target value (five minutes in the future)
         if len(data.shape) > 2:
-            labels = data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
+            labels = unstandardized_data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
         else:
-            labels = data[index + sequence_length + 1, [0, 2]].view(1, 1, 2)
+            labels = unstandardized_data[index + sequence_length + 1, [0, 2]].view(1, 1, 2)
             print(f"label: {labels}. shape: {labels.shape}")
 
         optimizer.zero_grad()
@@ -115,7 +115,8 @@ def test_model(model, test_data, sequence_length, item_ids, criterion):
 
     return test_losses, error
 
-def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch_length, device, item_ids, epochs=10, sequence_length=20):
+
+def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch_length, device, item_ids, unstandardized_data, epochs=10, sequence_length=20):
     training_losses = []
     test_losses = []
     error_values = []
@@ -125,7 +126,7 @@ def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch
         
         # Training
         model.train()
-        epoch_losses = train_one_epoch(train_data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, verbose=False)
+        epoch_losses = train_one_epoch(train_data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, unstandardized_data, verbose=False)
         avg_train_loss = sum(epoch_losses) / len(epoch_losses)
         training_losses.append(avg_train_loss)
         
