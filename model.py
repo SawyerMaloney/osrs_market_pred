@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import matplotlib.pyplot as plt
 
 # ----------------- API dataset model definition ----------------- #
 

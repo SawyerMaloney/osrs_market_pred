@@ -1,15 +1,14 @@
-import os 
-import torch.nn as nn
-import torch.nn.functional as F
+import os
 import torch
 import json
-import time
 import matplotlib.pyplot as plt
 import sys
 
 """
-    Get the data from items.json and use torch.cov and torch.corrcoef to calculate the correlation matrix for them
+    Get the data from items.json and use torch.cov and torch.corrcoef
+    to calculate the correlation matrix for them
 """
+
 
 class covar:
     items = None
@@ -24,7 +23,6 @@ class covar:
     filepath = None
     plot_cov_bool = True
 
-
     def __init__(self, device, filepath, cov=True):
         self.plot_cov_bool = cov
         if os.path.exists(filepath):
@@ -36,13 +34,16 @@ class covar:
         self.run()
 
     def run(self):
-        # steps: get item variables, create tensor, calculate "average" price so that the array is 2d, squeeze, calculate cov, plt it out
+        # steps: get item variables, create tensor,
+        # calculate "average" price so that the array is 2d,
+        # squeeze, calculate cov, plt it out
         self.load_item_names()
         self.set_item_variables()
         self.create_tensor()
         self.make_2d()
         self.set_item_variables()
-        # now self.items: (timeseries, items), but I think cov needs (items, timeseries), so .T it
+        # now self.items: (timeseries, items),
+        # but I think cov needs (items, timeseries), so .T it
         self.cov = torch.cov(self.items.T)
         self.corr = torch.corrcoef(self.items.T)
         if not self.plot_cov_bool:
@@ -59,15 +60,18 @@ class covar:
     def print_good_items(self):
         index = 0
         for item in self.corr:
-            print(f"item {self.item_names[self.item_ids[index]]}: {item} (id {self.item_ids[index]})")
+            print(f"item {self.item_names[self.item_ids[index]]}:"
+                  "{item} (id {self.item_ids[index]})")
             index += 1
 
     def find_corr(self):
-        # go through self.corr and find all those with high enough corr to soul rune
+        # go through self.corr
+        # find all those with high enough corr to soul rune
         length = list(self.corr.shape)[0]
         coefficients = torch.zeros(length)
         index = self.item_ids.index("566")
-        print(f"length: {length}. coefficients size: {coefficients.shape}. index: {index}")
+        print(f"length: {length}. coefficients size: {coefficients.shape}."
+              " index: {index}")
         for i in range(length):
             coefficients[i] = self.corr[index, i]
 
@@ -79,7 +83,7 @@ class covar:
         self.corr = torch.zeros(num)
         item_ids_repl = []
         index = 0
-        other_index = 0 # great programming
+        other_index = 0
         for item in coefficients:
             if item > .5:
                 self.corr[index] = item
@@ -87,7 +91,6 @@ class covar:
                 index += 1
             other_index += 1
         self.item_ids = item_ids_repl
-
 
     def plot_cov(self):
         # plot the matrix and add the necessary annotations to the plot
@@ -148,7 +151,7 @@ class covar:
     def set_item_variables(self):
         # fill in information of num_items, timeseries_length, & fields_per_item
         if type(self.items) != torch.Tensor:
-            rand_key = list(self.items.keys())[0] # random key so that we can index
+            rand_key = list(self.items.keys())[0]  # random key so that we can index
             self.num_items = len(self.items.keys())
             self.timeseries_length = len(self.items[rand_key])
             self.fields_per_item = len(self.items[rand_key][0])
@@ -165,11 +168,11 @@ class covar:
         # turn items from a dictionary of lists into a tensor
         # items: {"item_id": [], "item_id": []}
         # each list in the dictionary is a list as well, of 4 elements
-        items_tensor = torch.zeros((self.timeseries_length, self.num_items, self.fields_per_item), dtype = self.dtype, device=self.device).squeeze()
+        items_tensor = torch.zeros((self.timeseries_length, self.num_items, self.fields_per_item), dtype=self.dtype, device=self.device).squeeze()
 
         # now go through items and move everything over
         for i in range(self.num_items):
-            items_tensor[:,i] = torch.tensor(self.items[self.item_ids[i]], dtype=self.dtype)
+            items_tensor[:, i] = torch.tensor(self.items[self.item_ids[i]], dtype=self.dtype)
 
         self.items = items_tensor
 
