@@ -28,9 +28,6 @@ print("loading item names from item_ids.json. delete this file to re-calculate g
 with open("item_ids.json", "r") as names:
     item_ids = json.load(names)
 
-# ------------------------------
-item_ids = ["554", "555", "556", "557", "558", "559", "560", "561", "562", "563", "564", "565", "566"]
-
 
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
@@ -63,12 +60,12 @@ criterion = nn.MSELoss()
 
 input_size = number_of_items
 output_size = 2
-epoch_length = 500
+epoch_length = 1000
 
-epochs = 10
+epochs = 25
 sequence_length = 25
 hidden_size = 16
-num_layer = 2
+num_layer = 4
 learning_rate = 0.001
 
 

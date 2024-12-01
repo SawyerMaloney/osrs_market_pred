@@ -16,7 +16,9 @@ five_years_ago = today.replace(year=today.year - 5)
 df = df[df['date'] >= five_years_ago]
 
 # List of item IDs to filter
-item_ids = ["554", "555", "556", "557", "558", "559", "560", "561", "562", "563", "564", "565", "566"]
+# item_ids = ["554", "555", "556", "557", "558", "559", "560", "561", "562", "563", "564", "565", "566"]
+with open("item_ids.json", "r") as id_json:
+    item_ids = json.load(id_json)
 
 # Filter for the relevant item IDs
 df = df[df['id'].astype(str).isin(item_ids)]
@@ -46,7 +48,20 @@ for item_id in item_ids:
     grouped.set_index('date', inplace=True)
     grouped = grouped.reindex(all_dates, method=None)
     # Convert the data into the desired format, filling NaN values if missing
-    result[item_id] = grouped[['lowprice', 'lowprice_volume', 'highprice', 'highprice_volume']].fillna(method='ffill').values.tolist()
+    result[item_id] = grouped[['lowprice', 'lowprice_volume', 'highprice', 'highprice_volume']].ffill().values.tolist()
+
+# result has a bunch of NaN -- let's replace with 0's
+for key in result.keys():
+    for _timestep in range(len(result[key])):
+        timestep = result[key][_timestep]
+        new_ts = []
+        for t in timestep:
+            if pd.isna(t):
+                new_ts.append(0)
+            else:
+                new_ts.append(t)
+        result[key][_timestep] = new_ts
+
 
 # Store the result in a JSON file
 output_path = 'runescape_data.json'
