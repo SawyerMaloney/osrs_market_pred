@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Load the dataset
 path = kagglehub.dataset_download("aparoski/runescape-grand-exchange-data")
-df = pd.read_csv(path + "\Runescape_GE_Analytics_2024-09-18\Runescape_Item_Prices.csv")
+df = pd.read_csv(path + "/Runescape_GE_Analytics_2024-09-18/Runescape_Item_Prices.csv")
 
 # Convert date to datetime object
 df['date'] = pd.to_datetime(df['date'])
@@ -29,12 +29,11 @@ result = {}
 
 # Get the union of all dates across all items
 all_dates = df['date'].unique()
-all_dates.sort()
+all_dates = all_dates[all_dates.argsort()]
 
 # Process each item ID
 for item_id in item_ids:
     item_data = df[df['id'] == int(item_id)]
-    
     # Group data by date (in case there are multiple entries per day)
     grouped = item_data.groupby('date').agg(
         lowprice=('price', 'min'),
@@ -46,7 +45,6 @@ for item_id in item_ids:
     # Reindex the grouped data to include all possible dates and align timesteps
     grouped.set_index('date', inplace=True)
     grouped = grouped.reindex(all_dates, method=None)
-    
     # Convert the data into the desired format, filling NaN values if missing
     result[item_id] = grouped[['lowprice', 'lowprice_volume', 'highprice', 'highprice_volume']].fillna(method='ffill').values.tolist()
 
