@@ -144,8 +144,6 @@ class GetData:
         self.url = "https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=24h&id="
         # use the above api to get year long data for the following items (for now):
         print("Using timeseries api calls to make day long calls")
-        # overwrite items to only have our items (making it a bit faster to add items)
-        # item_ids_int = [_ for _ in range(554, 567)] # rune id's
         item_ids_int = self.get_item_ids_24hrs()
         print(f"looking for {len(item_ids_int)} items:")
         self.items = {}
@@ -190,6 +188,16 @@ class GetData:
                     else:
                         new_tup.append(val)
                 self.items[key][tup_index] = new_tup
+
+        # need to get rid of those that aren't the right length
+        # hard coded sequence length
+        seqlen = 365
+        ids_to_remove = []
+        for item in self.items.keys():
+            if len(self.items[item]) != seqlen:
+                ids_to_remove.append(item)
+        for _id in ids_to_remove:
+            self.items.pop(_id)
 
     def dump_to_items(self):
         with open("items.json", "w") as items_json:

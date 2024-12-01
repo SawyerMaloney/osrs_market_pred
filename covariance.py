@@ -22,8 +22,11 @@ class covar:
     cov = None
     item_names = None
     filepath = None
+    plot_cov_bool = True
 
-    def __init__(self, device, filepath):
+
+    def __init__(self, device, filepath, cov=True):
+        self.plot_cov_bool = cov
         if os.path.exists(filepath):
             with open(filepath, "r") as i:
                 self.items = json.load(i)
@@ -42,7 +45,49 @@ class covar:
         # now self.items: (timeseries, items), but I think cov needs (items, timeseries), so .T it
         self.cov = torch.cov(self.items.T)
         self.corr = torch.corrcoef(self.items.T)
-        self.plot_cov()
+        if not self.plot_cov_bool:
+            self.find_corr()
+            self.print_good_items()
+            self.write_ids_to_file()
+        else:
+            self.plot_cov()
+
+    def write_ids_to_file(self):
+        with open("item_ids.json", "w") as f:
+            json.dump(self.item_ids, f)
+
+    def print_good_items(self):
+        index = 0
+        for item in self.corr:
+            print(f"item {self.item_names[self.item_ids[index]]}: {item} (id {self.item_ids[index]})")
+            index += 1
+
+    def find_corr(self):
+        # go through self.corr and find all those with high enough corr to soul rune
+        length = list(self.corr.shape)[0]
+        coefficients = torch.zeros(length)
+        index = self.item_ids.index("566")
+        print(f"length: {length}. coefficients size: {coefficients.shape}. index: {index}")
+        for i in range(length):
+            coefficients[i] = self.corr[index, i]
+
+        # find number that are good enough
+        num = 0
+        for i in range(length):
+            if coefficients[i] > .5:
+                num += 1
+        self.corr = torch.zeros(num)
+        item_ids_repl = []
+        index = 0
+        other_index = 0 # great programming
+        for item in coefficients:
+            if item > .5:
+                self.corr[index] = item
+                item_ids_repl.append(self.item_ids[other_index])
+                index += 1
+            other_index += 1
+        self.item_ids = item_ids_repl
+
 
     def plot_cov(self):
         # plot the matrix and add the necessary annotations to the plot
@@ -136,7 +181,7 @@ class covar:
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         filepath = sys.argv[1]
-        c = covar(torch.device("cpu"), filepath)
+        c = covar(torch.device("cpu"), filepath, cov=False)
         print(c.info())
     else:
         print("usage: > python3 covariance.py *filepath*")
