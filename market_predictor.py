@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import json
-import time
 import matplotlib.pyplot as plt
 from model import PricePredictorRNN, train_one_epoch, test_model, train_and_evaluate
 
@@ -24,6 +23,7 @@ elif choose_dataset == "ij":
     if os.path.exists("items.json"):
         with open("items.json", "r") as items:
             all_data = json.load(items)
+
 
 def find_good_items():
     lengths = {}
