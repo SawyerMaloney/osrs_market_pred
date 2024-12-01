@@ -29,6 +29,10 @@ print("loading item names from item_ids.json. delete this file to re-calculate g
 with open("item_ids.json", "r") as names:
     item_ids = json.load(names)
 
+# ------------------------------- editing out all other items except 566 -------------------------------
+# all_data = {"566": all_data["566"]}
+# item_ids = ["566"]
+
 
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
@@ -46,9 +50,13 @@ else:
 print(f"size of timeseries: {timeseries_total_length}\nnumber_of_items: {number_of_items}\nfields_per_item: {fields_per_item}")
 
 data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype, device=device).squeeze()  # squeeze in case number of items is 1
+print(f"size of data: {data.shape}, length of shape: {len(data.shape)}")
 # copy data over
 for i in range(len(item_ids)):
-    data[:, i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
+    if len(data.shape) > 2:
+        data[:, i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
+    else:
+        data = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
 print(f"size of data: {data.size()}")
 
@@ -58,7 +66,6 @@ def naive_trading_strategy(model, test_data, sequence_length, criterion, initial
     balance = initial_balance
     inventory = 0
     # purchase_price = 0
-        
     with torch.no_grad():
         for i in range(len(test_data) - sequence_length - 1):
             inputs = test_data[i:i + sequence_length]

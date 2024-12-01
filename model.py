@@ -33,15 +33,16 @@ class PricePredictorRNN(nn.Module):
         L, N, dim = x.shape
         out = torch.zeros((4, self.hidden_size), device=self.device)
         # squeeze x[:, :, i] to [L, N], each item has one entry
-        out[0] = self.low_price(x[:, :, 0].squeeze())[0][-1, :] 
+        out[0] = self.low_price(x[:, :, 0].squeeze())[0][-1, :]
         out[1] = self.low_price_vol(x[:, :, 1].squeeze())[0][-1, :]
         out[2] = self.high_price(x[:, :, 2].squeeze())[0][-1, :]
         out[3] = self.high_price_vol(x[:, :, 3].squeeze())[0][-1, :]
         out = out.view(self.hidden_size * self.num_features)
         # Apply the linear layer to the last output of the RNN
-        out=self.dropout(out)
+        out = self.dropout(out)
         out = self.fc(out)  # Use the last time step output
         return out
+
 
 def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, verbose=True):
     min_loss = 100000000000
@@ -54,12 +55,19 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
         # time series
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length]
+        if len(inputs.shape) <= 2:
+            print("changing inputs shape")
+            inputs = inputs.view(inputs.shape[0], 1, inputs.shape[1])
+            print(f"new shape: {inputs.shape}")
 
         # the target value (five minutes in the future)
-        labels = data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
+        if len(data.shape) > 2:
+            labels = data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
+        else:
+            labels = data[index + sequence_length + 1, [0, 2]].view(1, 1, 2)
+            print(f"label: {labels}. shape: {labels.shape}")
 
         optimizer.zero_grad()
-        
         outputs = model(inputs)
 
         loss = criterion(outputs, labels)
