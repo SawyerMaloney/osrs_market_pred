@@ -15,6 +15,7 @@ def naive_trading_strategy(model, test_data, sequence_length, criterion, item_id
             # Model prediction
             outputs = model(inputs)
             predicted_future_price = outputs[0].item()  # Predicted price
+            print(f"model predicted price: {outputs}")
             # Naive trading logic
             if predicted_future_price > current_price:
                 # Buy condition: If we predict a rise in price and have enough balance

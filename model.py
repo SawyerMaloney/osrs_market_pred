@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 # ----------------- API dataset model definition ----------------- #
 
+
 class PricePredictorRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_features, device, lstm=False, num_layer=1):
         super(PricePredictorRNN, self).__init__()
@@ -23,7 +24,7 @@ class PricePredictorRNN(nn.Module):
         self.high_price_vol = rnn_model(input_size, hidden_size, num_layer, device=device)
         # Linear layer to map the RNN output to price prediction
         self.fc = nn.Linear(hidden_size * num_features, output_size, device=device)
-    
+
     def forward(self, x):
         # x of size: (L, N, dim), dim = 4
         # L     timeseries total length
@@ -56,11 +57,9 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length]
         if len(inputs.shape) <= 2:
-            print("changing inputs shape")
             inputs = inputs.view(inputs.shape[0], 1, inputs.shape[1])
-            print(f"new shape: {inputs.shape}")
 
-        # the target value (five minutes in the future)
+        # the target value
         if len(data.shape) > 2:
             labels = unstandardized_data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
         else:
@@ -93,6 +92,7 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
 
     return losses
 
+
 def test_model(model, test_data, sequence_length, item_ids, criterion):
     model.eval()
     error = 0
@@ -108,8 +108,8 @@ def test_model(model, test_data, sequence_length, item_ids, criterion):
 
             loss = criterion(outputs, labels)
             test_losses.append(loss.item())
-            
-            #(difference between predicted and actual price)
+
+            # (difference between predicted and actual price)
             error += (outputs - labels).sum().item()
 
     return test_losses, error
@@ -125,7 +125,7 @@ def train_and_evaluate(model, optimizer, train_data, test_data, criterion, epoch
         
         # Training
         model.train()
-        epoch_losses = train_one_epoch(train_data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, unstandardized_data, verbose=False)
+        epoch_losses = train_one_epoch(train_data, epoch_length, device, sequence_length, item_ids, optimizer, model, criterion, unstandardized_data, verbose=True)
         avg_train_loss = sum(epoch_losses) / len(epoch_losses)
         training_losses.append(avg_train_loss)
         

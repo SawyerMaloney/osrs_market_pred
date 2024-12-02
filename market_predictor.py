@@ -63,10 +63,10 @@ output_size = 2
 epoch_length = 1000
 
 epochs = 25
-sequence_length = 25
-hidden_size = 16
-num_layer = 4
-learning_rate = 0.001
+sequence_length = 10
+hidden_size = 2
+num_layer = 2
+learning_rate = 0.01
 
 
 # Standardize for bigger dataset
@@ -76,7 +76,7 @@ def standardize(data):
     return (data - mean) / (std + 1e-20)  # Adding a small epsilon to avoid division by zero
 
 
-standardized_data = standardize(data)
+standardized_data = data  # standardize(data)
 
 # Split the data into training and testing sets
 train_ratio = 0.8
@@ -84,7 +84,7 @@ train_size = int(len(standardized_data) * train_ratio)
 
 train_data = standardized_data[:train_size]
 test_data = data[train_size:]
-print(train_data.shape, test_data.shape)
+print(f"train data shape: {train_data.shape}, test data shape: {test_data.shape}")
 
 model = PricePredictorRNN(input_size, hidden_size, output_size, fields_per_item, device, lstm=True, num_layer=num_layer)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-2)
