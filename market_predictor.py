@@ -28,6 +28,12 @@ print("loading item names from item_ids.json. delete this file to re-calculate g
 with open("item_ids.json", "r") as names:
     item_ids = json.load(names)
 
+# going to make each item it's average
+for item in all_data.keys():
+    for timestep in range(len(all_data[item])):
+        ts = all_data[item][timestep]
+        avg = (ts[0] * ts[1] + ts[2] * ts[3]) / (ts[1] + ts[3] + 1e-20)
+        all_data[item][timestep] = avg
 
 # items indexed based on their ordering in items_ids
 data_dtype = torch.float
@@ -37,35 +43,29 @@ number_of_items = len(item_ids)
 
 # set fields_per_item. Might just be 1 value, in which case it won't have a length
 fields_per_item = None
-if len(all_data[item_ids[0]]) >= 1:
+if isinstance(all_data[item_ids[0]][0], list):
     fields_per_item = len(all_data[item_ids[0]][0])
 else:
     fields_per_item = 1
 
-print(f"size of timeseries: {timeseries_total_length}\nnumber_of_items: {number_of_items}\nfields_per_item: {fields_per_item}")
+print(f"size of timeseries: {timeseries_total_length}. number_of_items: {number_of_items}. fields_per_item: {fields_per_item}")
 
 data = torch.zeros((timeseries_total_length, number_of_items, fields_per_item), dtype=data_dtype, device=device).squeeze()  # squeeze in case number of items is 1
 print(f"size of data: {data.shape}, length of shape: {len(data.shape)}")
 # copy data over
 for i in range(len(item_ids)):
-    if len(data.shape) > 2:
-        data[:, i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
-    else:
-        data = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
-
-print(f"size of data: {data.size()}")
-
+    data[:, i] = torch.tensor(all_data[item_ids[i]], dtype=data_dtype)
 
 criterion = nn.MSELoss()
 
 input_size = number_of_items
-output_size = 2
+output_size = 1
 epoch_length = 1000
 
-epochs = 25
+epochs = 10
 sequence_length = 10
-hidden_size = 2
-num_layer = 2
+hidden_size = 512
+num_layer = 4
 learning_rate = 0.01
 
 

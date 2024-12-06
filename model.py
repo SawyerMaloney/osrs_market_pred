@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch.nn.functional as F
 import torch
 import matplotlib.pyplot as plt
 
@@ -18,12 +17,15 @@ class PricePredictorRNN(nn.Module):
         self.num_features = num_features
         self.dropout = nn.Dropout(0.2)
         # Four RNNs -- for low price, low price vol, high price, high price vol
+        """
         self.low_price = rnn_model(input_size, hidden_size, num_layer, device=device)
         self.low_price_vol = rnn_model(input_size, hidden_size, num_layer, device=device)
         self.high_price = rnn_model(input_size, hidden_size, num_layer, device=device)
         self.high_price_vol = rnn_model(input_size, hidden_size, num_layer, device=device)
+        """
+        self.out_rnn = rnn_model(input_size, hidden_size, num_layer, device=device)
         # Linear layer to map the RNN output to price prediction
-        self.fc = nn.Linear(hidden_size * num_features, output_size, device=device)
+        self.fc = nn.Linear(hidden_size, output_size, device=device)
 
     def forward(self, x):
         # x of size: (L, N, dim), dim = 4
@@ -31,17 +33,19 @@ class PricePredictorRNN(nn.Module):
         # N     number of items
         # dim   dim of each timeseries step
         # rnn_out, h = self.rnn(x)
-        L, N, dim = x.shape
+        """
         out = torch.zeros((4, self.hidden_size), device=self.device)
         # squeeze x[:, :, i] to [L, N], each item has one entry
         out[0] = self.low_price(x[:, :, 0].squeeze())[0][-1, :]
         out[1] = self.low_price_vol(x[:, :, 1].squeeze())[0][-1, :]
         out[2] = self.high_price(x[:, :, 2].squeeze())[0][-1, :]
         out[3] = self.high_price_vol(x[:, :, 3].squeeze())[0][-1, :]
-        out = out.view(self.hidden_size * self.num_features)
+        """
+        out = self.out_rnn(x)[0][-1, :]
+
         # Apply the linear layer to the last output of the RNN
         out = self.dropout(out)
-        out = self.fc(out)  # Use the last time step output
+        out = self.fc(out)
         return out
 
 
@@ -56,19 +60,14 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
         # time series
         # inputs = data[:, index:index + sequence_length]
         inputs = data[index:index + sequence_length]
-        if len(inputs.shape) <= 2:
-            inputs = inputs.view(inputs.shape[0], 1, inputs.shape[1])
 
         # the target value
-        if len(data.shape) > 2:
-            labels = unstandardized_data[index + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
-        else:
-            labels = unstandardized_data[index + sequence_length + 1, [0, 2]].view(1, 1, 2)
+        labels = unstandardized_data[index + sequence_length + 1, item_ids.index("566")].squeeze()
 
         optimizer.zero_grad()
         outputs = model(inputs)
 
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs, labels.view(1))
 
         losses.append(loss.item())
         losses_tensor[i] = loss.item()
@@ -81,13 +80,11 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
         optimizer.step()
         if verbose:
             if i % (epoch_length / 10) == 0 and i != 0:
-                print(f"{i}/{epoch_length}: avg loss {losses_tensor.mean():.2f}")
+                print(f"{i}/{epoch_length}: avg loss {losses_tensor.mean():.3f}. Pred: {outputs.item():.3f}, actual: {labels:.3f}")
             if i % 1000 == 0 and i != 0:
                 print(f"batch {i + 1} loss: {loss}")
 
             if i + 1 == epoch_length:
-                print(labels)
-                print(outputs)
                 print(f"min_loss: {min_loss}")
 
     return losses
@@ -102,15 +99,18 @@ def test_model(model, test_data, sequence_length, item_ids, criterion):
             inputs = test_data[i:i + sequence_length]
 
             # Target
-            labels = test_data[i + sequence_length + 1, item_ids.index("566")].squeeze()[[0, 2]]
+            labels = test_data[i + sequence_length + 1, item_ids.index("566")].squeeze()
 
             outputs = model(inputs)
 
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels.view(1))
             test_losses.append(loss.item())
 
             # (difference between predicted and actual price)
             error += (outputs - labels).sum().item()
+
+            if (i % 100 == 0):
+                print(f"prediction: {outputs.item():.2f}. actual: {labels.item():.2f}")
 
     return test_losses, error
 
