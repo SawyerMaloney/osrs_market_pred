@@ -80,7 +80,7 @@ def train_one_epoch(data, epoch_length, device, sequence_length, item_ids, optim
         optimizer.step()
         if verbose:
             if i % (epoch_length / 10) == 0 and i != 0:
-                print(f"{i}/{epoch_length}: avg loss {losses_tensor.mean():.3f}. Pred: {outputs.item():.3f}, actual: {labels:.3f}")
+                print(f"{i}/{epoch_length}: avg loss {losses_tensor[:i].mean():.3f}. Pred: {outputs.item():.3f}, actual: {labels:.3f}")
             if i % 1000 == 0 and i != 0:
                 print(f"batch {i + 1} loss: {loss}")
 
