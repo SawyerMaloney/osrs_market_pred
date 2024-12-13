@@ -12,3 +12,11 @@
 
 ### Utilized Publications
 https://www.sciencedirect.com/science/article/pii/S1746809424002933 -- pearson coefficient matrices
+
+### Runnable Scripts/Commands
+python market_predictor.py
+
+### Contributions
+Andrew: get_more_data.py, runescape_data.json, market_predictor.py 72-88, trading.py, model.py 93-160
+Daven:
+Sawyer:
