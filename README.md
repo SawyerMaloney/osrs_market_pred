@@ -15,8 +15,9 @@ https://www.sciencedirect.com/science/article/pii/S1746809424002933 -- pearson c
 
 ### Runnable Scripts/Commands
 python market_predictor.py
+multi_step_predictor.ipynb (look for "15_year_prices_item_554" for initial data)
 
 ### Contributions
 Andrew: get_more_data.py, runescape_data.json, market_predictor.py 72-88, trading.py, model.py 93-160
-Daven:
+Daven: model training, feature_engirneering_newData.py, 15_year_prices_item_554, multi_step_predictor.ipynb
 Sawyer:
